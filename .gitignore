@@ -1,3 +1,5 @@
 spike/out/
 spike/out-bare/
 spike/sites/
+node_modules/
+dist/

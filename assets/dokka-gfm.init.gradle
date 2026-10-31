@@ -1,0 +1,34 @@
+// Applies Dokka 2 with the GFM (Markdown) format to one subproject, leaving its build files untouched.
+// Usage: ./gradlew --init-script dokka-gfm.init.gradle -PdokkaProject=:<name> :<name>:dokkaGenerateMarkdown
+def dokkaVersion = '2.2.0'
+def target = gradle.startParameter.projectProperties['dokkaProject']
+
+// Dokka must share a classloader with AGP and KGP to find the Android sources, so it goes on the root buildscript
+// classpath; from the init script's own classpath it can't see them ("Dokka could not load KotlinBasePlugin").
+rootProject {
+  buildscript.dependencies.add('classpath', "org.jetbrains.dokka:dokka-gradle-plugin:$dokkaVersion")
+}
+
+// Dokka 2 ships no Markdown format. This is the DokkaMarkdownPlugin from the plugin-gfm README, compiled at runtime
+// against the root buildscript classloader for the same reason (a class declared here would load Dokka a second time).
+def markdownPluginSource = '''
+import org.jetbrains.dokka.gradle.formats.DokkaFormatPlugin
+abstract class DokkaMarkdownPlugin extends DokkaFormatPlugin {
+  DokkaMarkdownPlugin() { super('markdown') }
+  void configure(DokkaFormatPlugin.DokkaFormatPluginContext ctx) {
+    def deps = ctx.project.dependencies
+    ctx.dokkaPlugin(deps, ctx.dokka(deps, 'gfm-plugin'))
+    ctx.formatDependencies.dokkaPublicationPluginClasspathApiOnly.dependencies.addLater(
+      ctx.dokka(deps, 'gfm-template-processing-plugin'))
+  }
+}
+'''
+
+gradle.beforeProject { p ->
+  if (p.path != target) return
+  def loader = p.rootProject.buildscript.classLoader
+  p.pluginManager.apply(loader.loadClass('org.jetbrains.dokka.gradle.DokkaPlugin'))
+  p.pluginManager.apply(new GroovyClassLoader(loader).parseClass(markdownPluginSource))
+  // KGP's 'main' and AGP's 'release' both get src/main, which Dokka rejects ("have the common source roots")
+  p.extensions.getByName('dokka').dokkaSourceSets.matching { it.name == 'release' }.configureEach { it.suppress.set(true) }
+}
