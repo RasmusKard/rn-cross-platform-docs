@@ -1,0 +1,30 @@
+def lib = file(property('rnLibRoot'))
+def rn = new File(lib, 'node_modules/react-native')
+// SDK levels as RN's app template sets them, read from the installed react-native
+def toml = new File(rn, 'gradle/libs.versions.toml').text
+def v = { key -> (toml =~ /(?m)^${key}\s*=\s*"([^"]+)"/)[0][1] }
+buildscript {
+  repositories { google(); mavenCentral() }
+  dependencies {
+    // versions come from @react-native/gradle-plugin (included build), as in the app template
+    classpath('com.android.tools.build:gradle')
+    classpath('com.facebook.react:react-native-gradle-plugin')
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+  }
+}
+ext {
+  compileSdkVersion = v('compileSdk') as int
+  minSdkVersion = v('minSdk') as int
+  targetSdkVersion = v('targetSdk') as int
+  buildToolsVersion = v('buildTools')
+  ndkVersion = v('ndkVersion')
+}
+// What ReactPlugin does for the app project: react-android version/substitutions and repositories.
+def du = com.facebook.react.utils.DependencyUtils.INSTANCE
+def coords = du.readVersionAndGroupStrings(project, new File(rn, 'ReactAndroid/gradle.properties'), new File(rn, 'sdks/hermes-engine/version.properties'))
+du.configureDependencies(project, coords)
+du.configureRepositories(project, false)
+// codegen paths the app would provide (default is <host>/.., wrong here)
+apply plugin: 'com.facebook.react'
+privateReact.root.set(lib)
+com.facebook.react.utils.JdkConfiguratorUtils.INSTANCE.configureJavaToolChains(project)

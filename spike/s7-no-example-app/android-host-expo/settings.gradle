@@ -1,0 +1,15 @@
+pluginManagement {
+  def lib = new File(startParameter.projectProperties.rnLibRoot).canonicalFile
+  includeBuild(new File(lib, 'node_modules/@react-native/gradle-plugin').path)
+  includeBuild(new File(lib, 'node_modules/expo-modules-autolinking/android/expo-gradle-plugin').path)
+}
+plugins { id('expo-autolinking-settings') }
+def lib = new File(startParameter.projectProperties.rnLibRoot).canonicalFile
+def pkg = new groovy.json.JsonSlurper().parse(new File(lib, 'package.json'))
+rootProject.name = 'rn-docs-host'
+expoAutolinking.projectRoot = lib
+expoAutolinking.useExpoModules()
+expoAutolinking.useExpoVersionCatalog()
+includeBuild(expoAutolinking.reactNativeGradlePlugin)
+include ":${pkg.name}"
+project(":${pkg.name}").projectDir = new File(lib, 'android')

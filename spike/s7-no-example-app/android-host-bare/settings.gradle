@@ -1,0 +1,18 @@
+// Host build for a React Native library's android/ project without an example app.
+// Usage: gradlew -p <this dir> -PrnLibRoot=<library root> ...
+import groovy.json.JsonSlurper
+def lib = new File(startParameter.projectProperties.rnLibRoot).canonicalFile
+def gradleName = { String npm -> ':' + npm.replace('@', '').replace('/', '_') } // RN CLI autolinking's project names
+def pkg = new JsonSlurper().parse(new File(lib, 'package.json'))
+rootProject.name = 'rn-docs-host'
+includeBuild(new File(lib, 'node_modules/@react-native/gradle-plugin'))
+include gradleName(pkg.name)
+project(gradleName(pkg.name)).projectDir = new File(lib, 'android')
+// native modules the library can depend on, as autolinking would include them in an app
+((pkg.peerDependencies ?: [:]) + (pkg.dependencies ?: [:])).keySet().each { dep ->
+  def android = new File(lib, "node_modules/$dep/android")
+  if (new File(android, 'build.gradle').exists() || new File(android, 'build.gradle.kts').exists()) {
+    include gradleName(dep)
+    project(gradleName(dep)).projectDir = android
+  }
+}

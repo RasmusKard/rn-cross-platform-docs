@@ -123,7 +123,8 @@ TypeDoc HTML setup and loses its platform icons and iOS/Android filter toggles.
 
 DocC fix-ups beyond the link rewrite, versioned docs, internal or contributor reference, hubs combining several repos, React Native apps
 (only library repos with an example app), a Starlight plugin, excluding generated code (e.g. Nitro's) from the reference;
-the README notes that it shows up.
+the README notes that it shows up. Libraries without an example app are a possible future path; spike S7
+(`spike/s7-no-example-app.md`) records how.
 
 ## Open questions for the human
 

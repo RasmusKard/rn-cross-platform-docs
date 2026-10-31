@@ -1,0 +1,16 @@
+buildscript {
+  repositories { google(); mavenCentral() }
+  dependencies {
+    classpath('com.android.tools.build:gradle')
+    classpath('com.facebook.react:react-native-gradle-plugin')
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+  }
+}
+allprojects { repositories { google(); mavenCentral() } }
+apply plugin: 'expo-root-project'
+def rn = new File(property('rnLibRoot'), 'node_modules/react-native')
+def du = com.facebook.react.utils.DependencyUtils.INSTANCE
+du.configureDependencies(project, du.readVersionAndGroupStrings(project, new File(rn, 'ReactAndroid/gradle.properties'), new File(rn, 'sdks/hermes-engine/version.properties')))
+com.facebook.react.utils.JdkConfiguratorUtils.INSTANCE.configureJavaToolChains(project)
+apply plugin: 'com.facebook.react'
+privateReact.root.set(file(property('rnLibRoot')))
