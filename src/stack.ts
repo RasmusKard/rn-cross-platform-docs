@@ -13,6 +13,8 @@ export interface Stack {
   packageManager: 'npm' | 'yarn' | 'pnpm' | 'bun';
   /** `nitro.json` is present: the repo's `nitrogen` script must run before Gradle and CocoaPods. */
   nitro: boolean;
+  /** `package.json` has `codegenConfig`: React Native codegen makes the library's spec types. */
+  codegen: boolean;
   /** Example app directory. */
   example: string;
   /** Platforms with sources, in `allPlatforms` order. */
