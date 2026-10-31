@@ -17,6 +17,7 @@ void test('writes Markdown from the repo config, without local plugins or assets
     name: 'fixture',
     kind: 'bare',
     nitro: false,
+    codegen: false,
     example: join(root, 'example'),
     platforms: ['typescript'],
   };
@@ -36,7 +37,7 @@ void test('falls back to src/index.tsx when the repo sets no entry points', asyn
   const root = new URL('fixtures/typescript-no-config', import.meta.url).pathname;
   const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
 
-  await generateTypeScript({ root, name: 'no-config', kind: 'bare', nitro: false, example: join(root, 'example'), platforms: ['typescript'] }, out);
+  await generateTypeScript({ root, name: 'no-config', kind: 'bare', nitro: false, codegen: false, example: join(root, 'example'), platforms: ['typescript'] }, out);
 
   assert.deepEqual(readdirSync(join(out, 'functions')), ['hello.md']);
 });
