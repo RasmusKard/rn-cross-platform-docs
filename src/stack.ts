@@ -9,6 +9,8 @@ export interface Stack {
   kind: 'expo' | 'bare';
   /** `nitro.json` is present: nitrogen must run before Gradle and CocoaPods. */
   nitro: boolean;
+  /** `package.json` has `codegenConfig`: React Native codegen makes the library's spec types. */
+  codegen: boolean;
   example: string;
   /** Platforms with sources, in `allPlatforms` order. */
   platforms: Platform[];

@@ -11,6 +11,7 @@ void test('a package that already applies Dokka is rejected before any build', a
     name: 'existing-dokka',
     kind: 'bare',
     nitro: false,
+    codegen: false,
     example: `${root}/example`,
     platforms: ['kotlin'],
     gradleProject: ':existing-dokka',

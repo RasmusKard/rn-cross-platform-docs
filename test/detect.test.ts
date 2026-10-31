@@ -13,6 +13,7 @@ await test('an Expo module with all three platforms', async () => {
     name: '@acme/expo-probe',
     kind: 'expo',
     nitro: false,
+    codegen: false,
     example: join(root, 'example'),
     platforms: ['typescript', 'kotlin', 'swift'],
     gradleProject: ':acme-expo-probe',
@@ -27,6 +28,7 @@ await test('an Expo module whose config lists only android and names its Gradle 
     name: 'expo-android-probe',
     kind: 'expo',
     nitro: false,
+    codegen: false,
     example: join(root, 'example'),
     platforms: ['typescript', 'kotlin'],
     gradleProject: ':android-probe',
@@ -40,6 +42,7 @@ await test('a bare Nitro library with committed example projects', async () => {
     name: 'react-native-bare-probe',
     kind: 'bare',
     nitro: true,
+    codegen: false,
     example: join(root, 'example'),
     platforms: ['typescript', 'kotlin', 'swift'],
     gradleProject: ':react-native-bare-probe',
@@ -49,6 +52,20 @@ await test('a bare Nitro library with committed example projects', async () => {
 
 await test('a repo with no native module throws, naming what was looked for', async () => {
   await assert.rejects(detect(fixture('none')), /No React Native native module .*expo-module\.config\.json.*example\/ios\/Podfile/);
+});
+
+await test('a bare Turbo module with codegenConfig and no Swift', async () => {
+  const root = fixture('bare-turbo');
+  assert.deepEqual(await detect(root), {
+    root,
+    name: 'react-native-turbo-probe',
+    kind: 'bare',
+    nitro: false,
+    codegen: true,
+    example: join(root, 'example'),
+    platforms: ['typescript', 'kotlin'],
+    gradleProject: ':react-native-turbo-probe',
+  });
 });
 
 await test('a bare library with a Kotlin settings script and a computed podspec name', async (t) => {

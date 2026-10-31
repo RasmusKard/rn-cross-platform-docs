@@ -21,7 +21,9 @@ export const generateKotlin: Generator = async (stack, out) => {
   }
   await prepareExample(stack, 'android');
   const exampleAndroid = join(stack.example, 'android');
-  await run(join(exampleAndroid, 'gradlew'), ['--init-script', initScript, `-PdokkaProject=${project}`, `${project}:dokkaGenerateMarkdown`], exampleAndroid);
+  // Dokka doesn't depend on codegen, so without this the generated spec supertype is an unresolved ERROR CLASS
+  const codegen = stack.codegen ? [`${project}:generateCodegenArtifactsFromSchema`] : [];
+  await run(join(exampleAndroid, 'gradlew'), ['--init-script', initScript, `-PdokkaProject=${project}`, ...codegen, `${project}:dokkaGenerateMarkdown`], exampleAndroid);
   await rm(out, { recursive: true, force: true });
   // Dokka's link metadata, not a page
   await cp(join(android, 'build/dokka/markdown'), out, { recursive: true, filter: (f) => basename(f) !== 'package-list' });

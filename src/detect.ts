@@ -10,7 +10,7 @@ export async function detect(root: string): Promise<Stack> {
   root = resolve(root);
   const at = (...p: string[]) => join(root, ...p);
   if (!existsSync(at('package.json'))) throw new Error(`No package.json in ${root}`);
-  const pkg = JSON.parse(await readFile(at('package.json'), 'utf8')) as { name?: string };
+  const pkg = JSON.parse(await readFile(at('package.json'), 'utf8')) as { name?: string; codegenConfig?: unknown };
   if (typeof pkg.name !== 'string') throw new Error(`No name in ${at('package.json')}`);
   const name = pkg.name;
   const example = at('example');
@@ -37,6 +37,7 @@ export async function detect(root: string): Promise<Stack> {
     name,
     kind,
     nitro: existsSync(at('nitro.json')),
+    codegen: pkg.codegenConfig !== undefined,
     example,
     platforms,
   };
