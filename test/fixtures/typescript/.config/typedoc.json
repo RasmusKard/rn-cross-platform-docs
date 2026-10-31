@@ -1,0 +1,7 @@
+{
+  "entryPoints": ["../src/index.ts"],
+  "out": "../docs",
+  "plugin": ["./local-plugin.mjs"],
+  "customCss": "custom.css",
+  "treatWarningsAsErrors": true
+}
