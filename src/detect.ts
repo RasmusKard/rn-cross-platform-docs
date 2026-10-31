@@ -38,17 +38,7 @@ export async function detect(root: string): Promise<Stack> {
   }
 
   const podspec = await first(root, ['ios/*.podspec', '*.podspec']);
-  const platforms: Platform[] = ['typescript'];
-  if ((!expoPlatforms || expoPlatforms.includes('android')) && (await first(root, ['android/**/*.kt']))) {
-    platforms.push('kotlin');
-  }
-  if (
-    (!expoPlatforms || expoPlatforms.some((p) => p === 'apple' || p === 'ios')) &&
-    podspec &&
-    (await first(root, ['ios/**/*.swift']))
-  ) {
-    platforms.push('swift');
-  }
+  const platforms = await detectPlatforms(root, expoPlatforms, podspec);
 
   const stack: Stack = {
     root,
@@ -65,6 +55,15 @@ export async function detect(root: string): Promise<Stack> {
     stack.podName = literal ?? basename(podspec, '.podspec');
   }
   return stack;
+}
+
+/** `expoPlatforms`, when the Expo config lists them, gate the native platforms. */
+async function detectPlatforms(root: string, expoPlatforms: string[] | undefined, podspec: string | undefined) {
+  const platforms: Platform[] = ['typescript'];
+  const allows = (...names: string[]) => !expoPlatforms || expoPlatforms.some((p) => names.includes(p));
+  if (allows('android') && (await first(root, ['android/**/*.kt']))) platforms.push('kotlin');
+  if (allows('apple', 'ios') && podspec && (await first(root, ['ios/**/*.swift']))) platforms.push('swift');
+  return platforms;
 }
 
 function packageManager(root: string, field: string | undefined): Stack['packageManager'] {
