@@ -1,0 +1,38 @@
+{
+  "name": "rn-cross-platform-docs",
+  "version": "0.0.0",
+  "description": "Markdown API reference for React Native native modules, one tree per platform: TypeScript, Kotlin and Swift",
+  "license": "MIT",
+  "repository": "https://github.com/RasmusKard/rn-cross-platform-docs",
+  "type": "module",
+  "bin": {
+    "rn-cross-platform-docs": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "assets"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "test": "node --test 'test/**/*.test.ts'",
+    "lint": "eslint . && tsc --noEmit"
+  },
+  "peerDependencies": {
+    "typedoc": "0.28.x",
+    "typedoc-plugin-markdown": "4.14.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "22.20.5",
+    "eslint": "9.39.5",
+    "markdown-it": "15.0.3",
+    "typedoc": "0.28.20",
+    "typedoc-plugin-markdown": "4.14.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}
