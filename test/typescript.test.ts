@@ -30,3 +30,13 @@ void test('writes Markdown from the repo config, without local plugins or assets
   const dropped = info.mock.calls.map((c) => stripVTControlCharacters(String(c.arguments[0]))).filter((l) => l.includes('Dropping'));
   assert.deepEqual(dropped, [`[info] Dropping local TypeDoc plugin ${join(root, '.config/local-plugin.mjs')}`]);
 });
+
+void test('falls back to src/index.tsx when the repo sets no entry points', async (t) => {
+  t.mock.method(console, 'info', () => {});
+  const root = new URL('fixtures/typescript-no-config', import.meta.url).pathname;
+  const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
+
+  await generateTypeScript({ root, name: 'no-config', kind: 'bare', packageManager: 'npm', nitro: false, example: join(root, 'example'), platforms: ['typescript'] }, out);
+
+  assert.deepEqual(readdirSync(join(out, 'functions')), ['hello.md']);
+});

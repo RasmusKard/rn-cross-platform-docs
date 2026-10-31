@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import type { OptionsReader } from 'typedoc';
@@ -21,6 +22,9 @@ export const generateTypeScript: Generator = async (stack, out) => {
       const local = repo.filter((p) => typeof p === 'string' && isAbsolute(p));
       for (const p of local) logger.info(`Dropping local TypeDoc plugin ${p}`);
       options.setValue('plugin', [...repo.filter((p) => !local.includes(p)), 'typedoc-plugin-markdown']);
+      // TypeDoc's own fallback reads package.json exports, which point at unbuilt output in RN library scaffolds
+      const entry = ['src/index.ts', 'src/index.tsx'].find((f) => existsSync(join(stack.root, f)));
+      if (options.getValue('entryPoints').length === 0 && entry) options.setValue('entryPoints', [entry]);
     },
   };
 
