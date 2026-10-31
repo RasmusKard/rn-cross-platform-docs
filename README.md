@@ -87,7 +87,7 @@ Pin a release tag instead of `main`. Inputs, all optional:
 | `platforms` | `'["typescript", "kotlin", "swift"]'` (a JSON array) |
 | `install` | from the lockfile: `yarn install --immutable`, `pnpm install --frozen-lockfile`, or `npm ci` plus `npm ci` in `example/` |
 | `node-version` | `24` |
-| `xcode-version` / `macos-runner` | `27.2` / `xcode-27` |
+| `xcode-version` / `macos-runner` | `27.2` / `xcode-27`; an empty `xcode-version` keeps the runner's default Xcode |
 | `artifact-name` | `api-reference` |
 
 ## Hide what is public only for the framework
