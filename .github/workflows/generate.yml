@@ -17,6 +17,7 @@ on:
         type: string
         default: '24'
       xcode-version:
+        description: Xcode installed as `/Applications/Xcode_<version>.app`; empty uses the runner's default Xcode
         type: string
         default: '27.2'
       macos-runner:
@@ -49,10 +50,10 @@ jobs:
         with:
           distribution: zulu
           java-version: '17'
-      - if: matrix.platform == 'swift'
+      - if: matrix.platform == 'swift' && inputs.xcode-version != ''
         env:
           XCODE_VERSION: ${{ inputs.xcode-version }}
-        run: sudo xcode-select -s "/Applications/Xcode_$XCODE_VERSION.app"
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_$XCODE_VERSION.app/Contents/Developer" >> "$GITHUB_ENV"
       - name: Install dependencies
         env:
           INSTALL: ${{ inputs.install }}

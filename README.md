@@ -100,7 +100,7 @@ Pin a commit or release tag instead of `main`. Inputs, all optional:
 | `platforms` | `'["typescript", "kotlin", "swift"]'` (a JSON array); a platform the repo has no sources for is skipped with a notice, after its runner has been set up and the dependencies installed |
 | `install` | picks yarn, pnpm or npm from the lockfile (npm also runs `npm ci` in `example/` when it has a `package-lock.json`); a bun repo, or any other setup, sets this |
 | `node-version` | `24` |
-| `xcode-version` / `macos-runner` | `27.2` / `xcode-27` |
+| `xcode-version` / `macos-runner` | `27.2` / `xcode-27`; an empty `xcode-version` keeps the runner's default Xcode |
 | `artifact-name` | `api-reference`; the prefix of the per-platform artifact names |
 
 ## Hide what is public only for the framework
