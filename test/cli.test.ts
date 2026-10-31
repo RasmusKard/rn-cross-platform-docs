@@ -20,3 +20,9 @@ await test('an unknown option exits 2 with the message and usage, without a stac
   assert.match(r.stderr, /^Unknown option '--foo'.*\n\nUsage: /);
   assert.doesNotMatch(r.stderr, /ERR_PARSE_ARGS|\n\s+at /);
 });
+
+await test('detect exits 1 without a native module', () => {
+  const r = spawnSync(process.execPath, [cli, 'detect'], { cwd: new URL('fixtures/none', import.meta.url).pathname, encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /No React Native native module/);
+});
