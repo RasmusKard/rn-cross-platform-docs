@@ -1,0 +1,81 @@
+# Reusable: generates the Markdown API reference of the calling library repo, one runner per platform, and uploads
+# one artifact per platform holding `<platform>.tar` (Swift file names contain `:`, which upload-artifact rejects).
+name: Generate API reference
+
+on:
+  workflow_call:
+    inputs:
+      platforms:
+        description: JSON array of platforms to generate; a platform the repo has no sources for is skipped with a notice
+        type: string
+        default: '["typescript", "kotlin", "swift"]'
+      install:
+        description: Shell command that installs the repo's and the example app's dependencies (default picks one from the lockfile)
+        type: string
+        default: ''
+      node-version:
+        type: string
+        default: '24'
+      xcode-version:
+        description: Xcode installed as `/Applications/Xcode_<version>.app`; empty uses the runner's default Xcode
+        type: string
+        default: '27.2'
+      macos-runner:
+        description: Runner label with `xcode-version` installed
+        type: string
+        default: xcode-27
+      artifact-name:
+        description: Prefix of the uploaded artifacts, named `<artifact-name>-<platform>`; each holds `<platform>.tar`
+        type: string
+        default: api-reference
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    strategy:
+      matrix:
+        platform: ${{ fromJSON(inputs.platforms) }}
+    runs-on: ${{ matrix.platform == 'swift' && inputs.macos-runner || 'ubuntu-latest' }}
+    env:
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - if: matrix.platform == 'kotlin'
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '17'
+      - if: matrix.platform == 'swift' && inputs.xcode-version != ''
+        env:
+          XCODE_VERSION: ${{ inputs.xcode-version }}
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_$XCODE_VERSION.app/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Install dependencies
+        env:
+          INSTALL: ${{ inputs.install }}
+        run: |
+          if [ -n "$INSTALL" ]; then eval "$INSTALL"
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
+          elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          else
+            npm ci
+            if [ -f example/package-lock.json ]; then (cd example && npm ci); fi
+          fi
+      - id: detect
+        run: |
+          detected=$(npx --no-install rn-cross-platform-docs detect)
+          if grep -qx "$PLATFORM" <<< "$detected"; then echo found=true >> "$GITHUB_OUTPUT"
+          else echo "::notice::No $PLATFORM sources detected; skipping $PLATFORM"; fi
+      - if: steps.detect.outputs.found
+        run: npx --no-install rn-cross-platform-docs generate --out "$RUNNER_TEMP/reference" --platforms "$PLATFORM"
+      - if: steps.detect.outputs.found
+        run: tar -cf "$RUNNER_TEMP/$PLATFORM.tar" -C "$RUNNER_TEMP/reference" "$PLATFORM"
+      - if: steps.detect.outputs.found
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}-${{ matrix.platform }}
+          path: ${{ runner.temp }}/${{ matrix.platform }}.tar
