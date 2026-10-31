@@ -1,0 +1,84 @@
+# Reusable: generates the Markdown API reference of the calling library repo, one runner per platform, and uploads
+# one artifact holding `<platform>/` trees in a tar (Swift file names contain `:`, which upload-artifact rejects).
+name: Generate API reference
+
+on:
+  workflow_call:
+    inputs:
+      platforms:
+        description: JSON array of platforms to generate
+        type: string
+        default: '["typescript", "kotlin", "swift"]'
+      install:
+        description: Shell command that installs the repo's and the example app's dependencies (default picks one from the lockfile)
+        type: string
+        default: ''
+      node-version:
+        type: string
+        default: '24'
+      xcode-version:
+        type: string
+        default: '27.2'
+      macos-runner:
+        description: Runner label with `xcode-version` installed
+        type: string
+        default: xcode-27
+      artifact-name:
+        description: Name of the uploaded artifact; it holds `reference.tar`
+        type: string
+        default: api-reference
+
+jobs:
+  generate:
+    strategy:
+      matrix:
+        platform: ${{ fromJSON(inputs.platforms) }}
+    runs-on: ${{ matrix.platform == 'swift' && inputs.macos-runner || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - if: matrix.platform == 'kotlin'
+        uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: '17'
+      - if: matrix.platform == 'swift'
+        run: sudo xcode-select -s "/Applications/Xcode_${{ inputs.xcode-version }}.app"
+      - name: Install dependencies
+        env:
+          INSTALL: ${{ inputs.install }}
+        run: |
+          if [ -n "$INSTALL" ]; then eval "$INSTALL"
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
+          elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          else
+            npm ci
+            if [ -f example/package-lock.json ]; then (cd example && npm ci); fi
+          fi
+      - run: npx rn-cross-platform-docs generate --out "$RUNNER_TEMP/reference" --platforms ${{ matrix.platform }}
+      - run: tar -cf "$RUNNER_TEMP/${{ matrix.platform }}.tar" -C "$RUNNER_TEMP/reference" ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}-${{ matrix.platform }}
+          path: ${{ runner.temp }}/${{ matrix.platform }}.tar
+          retention-days: 1
+
+  merge:
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ inputs.artifact-name }}-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/parts
+      - run: |
+          mkdir reference
+          for t in "$RUNNER_TEMP"/parts/*.tar; do tar -xf "$t" -C reference; done
+          tar -cf "$RUNNER_TEMP/reference.tar" -C reference .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ runner.temp }}/reference.tar
