@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "expo-greeter": ["../src/index"],
+      "expo-greeter/*": ["../src/*"]
+    }
+  }
+}

@@ -11,7 +11,7 @@ docs/reference/
 
 It works on Expo modules and bare React Native libraries (Turbo or Nitro modules) that have an example app in
 `example/`. It only writes Markdown; site plugins in `plugins/` turn the trees into a site, e.g.
-[Zensical](plugins/zensical/).
+[Zensical](plugins/zensical/). [examples/expo-greeter](examples/expo-greeter/) is a minimal Expo module to try it on.
 
 ## Install
 
