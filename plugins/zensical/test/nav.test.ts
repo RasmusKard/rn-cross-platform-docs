@@ -1,0 +1,123 @@
+import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { test } from 'node:test';
+import { platformNav } from '../src/nav.ts';
+
+function tree(files: Record<string, string>): string {
+  const dir = mkdtempSync(join(tmpdir(), 'nav-'));
+  for (const [path, body] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, path)), { recursive: true });
+    writeFileSync(join(dir, path), body);
+  }
+  return dir;
+}
+
+await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async () => {
+  const dir = tree({
+    'index.md': '# lib',
+    'package-list': '',
+    'lib/com.example/index.md': '# com.example',
+    'lib/com.example/-web-view/index.md': '# WebView',
+    'lib/com.example/-web-view/-web-view.md': '# WebView',
+    'lib/com.example/-web-view/load.md': '# load',
+    'lib/com.example/-mode/index.md': '# Mode',
+    'lib/com.example/-mode/-o-n/index.md': '# ON',
+    'lib/com.example.views/index.md': '# com.example.views',
+    'lib/com.example.views/-pane/index.md': '# Pane',
+  });
+  assert.deepEqual(await platformNav(dir), {
+    nav: [
+      'index.md',
+      {
+        'com.example': [
+          'lib/com.example/index.md',
+          { Mode: ['lib/com.example/-mode/index.md', 'lib/com.example/-mode/-o-n/index.md'] },
+          {
+            WebView: [
+              'lib/com.example/-web-view/index.md',
+              { constructor: 'lib/com.example/-web-view/-web-view.md' },
+              'lib/com.example/-web-view/load.md',
+            ],
+          },
+        ],
+      },
+      { 'com.example.views': ['lib/com.example.views/index.md', 'lib/com.example.views/-pane/index.md'] },
+    ],
+  });
+});
+
+await test('Kotlin: a page-only package among several keeps the root page', async () => {
+  const dir = tree({
+    'index.md': '# lib',
+    'lib/a/index.md': '# a',
+    'lib/b/index.md': '# b',
+    'lib/b/-t/index.md': '# T',
+  });
+  assert.deepEqual(await platformNav(dir), { nav: ['index.md', 'lib/a/index.md', { b: ['lib/b/index.md', 'lib/b/-t/index.md'] }] });
+});
+
+await test('Kotlin: one package replaces the root page that lists it', async () => {
+  const dir = tree({
+    'index.md': '# lib',
+    'lib/com.example/index.md': '# com.example',
+    'lib/com.example/-web-view/index.md': '# WebView',
+    'lib/com.example/-web-view/load.md': '# load',
+  });
+  assert.deepEqual(await platformNav(dir), {
+    nav: [
+      'lib/com.example/index.md',
+      { WebView: ['lib/com.example/-web-view/index.md', 'lib/com.example/-web-view/load.md'] },
+    ],
+  });
+});
+
+await test('Swift: sections titled by index.md H1, documentation/<module> level dropped', async () => {
+  const dir = tree({
+    'documentation/m/index.md': '# M',
+    'documentation/m/f(_:).md': '# f(_:)',
+    'documentation/m/scope/index.md': '# Scope',
+    'documentation/m/scope/end/index.md': '# Scope.End',
+    'documentation/m/scope/end/!=(_:_:).md': '# !=(_:_:)',
+    'documentation/m/my_type/index.md': '# My\\_Type',
+    'documentation/m/my_type/f().md': '# f()',
+    'images/com.example.m/x.png': '',
+  });
+  assert.deepEqual(await platformNav(dir), {
+    nav: [
+      'documentation/m/index.md',
+      'documentation/m/f(_:).md',
+      { My_Type: ['documentation/m/my_type/index.md', 'documentation/m/my_type/f().md'] },
+      {
+        Scope: [
+          'documentation/m/scope/index.md',
+          { 'Scope.End': ['documentation/m/scope/end/index.md', 'documentation/m/scope/end/!=(_:_:).md'] },
+        ],
+      },
+    ],
+  });
+});
+
+await test('Swift: a type with a member named index keeps its page as the sibling <type>.md', async () => {
+  const dir = tree({
+    'documentation/m/index.md': '# M',
+    'documentation/m/t.md': '# T',
+    'documentation/m/t/index.md': '# index',
+    'documentation/m/t/f().md': '# f()',
+  });
+  assert.deepEqual(await platformNav(dir), {
+    nav: ['documentation/m/index.md', { T: ['documentation/m/t.md', 'documentation/m/t/index.md', 'documentation/m/t/f().md'] }],
+  });
+});
+
+await test('a page is kept next to a file of its name without .md', async () => {
+  assert.deepEqual(await platformNav(tree({ 'foo': '', 'foo.md': '# Foo' })), { nav: ['foo.md'] });
+});
+
+await test('a section whose page has no heading is titled by its folder name', async () => {
+  const dir = tree({ 'lib/-web-view/index.md': 'No heading', 'lib/-web-view/load.md': '# load', 'other.md': '# Other' });
+  assert.deepEqual(await platformNav(dir), {
+    nav: [{ '-web-view': ['lib/-web-view/index.md', 'lib/-web-view/load.md'] }, 'other.md'],
+  });
+});
