@@ -77,7 +77,8 @@ already applies Dokka (`org.jetbrains.dokka`) in `android/build.gradle` or `andr
 bare library, `pod install` rewrites the example app's committed Xcode project, as it does for any developer.
 
 TypeDoc plugins given as local files in the repo's config are dropped, since they usually customize the HTML theme;
-plugins from packages stay.
+plugins from packages stay. The Markdown plugin titles pages with their kind, e.g. `Function: createBridge()`, which
+site navs show as is; to title them by name only, set `"pageTitleTemplates": { "member": "{name}" }` in the config.
 
 ## GitHub Actions
 
@@ -131,14 +132,20 @@ show up in the reference, and since nitrogen regenerates them they can't be anno
 
 ## Known gaps in DocC's Markdown
 
-The Swift tree is DocC's experimental Markdown output as is, with one fix: symbol links and image paths are rewritten
-into relative `.md` links (a link to a symbol outside the module becomes plain text). As of Xcode 27.2:
+The Swift tree is DocC's experimental Markdown output, with these changes:
+
+- Symbol links and image paths are rewritten into relative `.md` links (a link to a symbol outside the module becomes
+  plain text), including the ``` ``doc://...`` ``` links DocC leaves unresolved in callouts.
+- A page with child pages is written to `<page>/index.md`, e.g. `documentation/mymodule/mytype/index.md`.
+- `_` in page titles is escaped, which DocC leaves to read as emphasis.
+- Code blocks without a language, such as DocC's declarations, are labeled `swift`.
+- Members that protocol conformances add to each type (synthesized members, such as `Equatable`'s `!=`) are left out.
+
+As of Xcode 27.2, the gaps are:
 
 - Type and module pages don't list their members unless the docs catalog curates them with `## Topics`. Fixed in
   swift-docc's `main` ([#1625](https://github.com/swiftlang/swift-docc/pull/1625)), not yet in an Xcode release.
 - Overloads share a title; their file names differ by a hash, e.g. `run(_:)-8uxly.md`.
 - Deprecation appears only in the metadata comment at the top of the page.
-- Declaration code blocks have no `swift` language tag.
 - Callouts (`- Note:`, `- Important:`) stay plain blockquotes, `> Note: ...`.
 - File names contain `(`, `)`, `:`, `!` and `=`, e.g. `!=(_:_:).md`; Windows can't check them out.
-- Inherited and synthesized members (`Equatable`'s `!=`) get their own pages.

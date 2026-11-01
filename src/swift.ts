@@ -27,6 +27,8 @@ export const generateSwift: Generator = async (stack, out) => {
         '-derivedDataPath',
         dd,
         'OTHER_DOCC_FLAGS=--enable-experimental-markdown-output --enable-experimental-markdown-output-manifest --no-transform-for-static-hosting',
+        // drops members that protocol conformances copy onto each type (Equatable's !=, Record's decode(_:in:))
+        'OTHER_SWIFT_FLAGS=$(inherited) -symbol-graph-skip-synthesized-members',
       ],
       ios,
     );
@@ -44,12 +46,16 @@ export async function findArchive(dir: string): Promise<string> {
   return join(dir, archives[0]);
 }
 
-/** Writes the archive of Swift module `module` (its Markdown pages and images) to `out`, with symbol links and image paths made relative. */
+/**
+ * Writes the archive of Swift module `module` (its Markdown pages and images) to `out`, with symbol links and image paths
+ * made relative. A page with child pages moves to `<page>/index.md`, which site generators use as the section's page.
+ * Unlabeled code blocks are labeled `swift`.
+ */
 export async function exportArchive(archive: string, module: string, out: string): Promise<void> {
   const manifest = `${module}-markdown-manifest.json`;
   const json = await readFile(join(archive, manifest), 'utf8');
   const { documents } = JSON.parse(json) as { documents: { identifier: string }[] };
-  const pages = new Set(documents.map((d) => d.identifier.toLowerCase()));
+  const files = pageFiles(documents.map((d) => d.identifier));
   await rm(out, { recursive: true, force: true });
   await mkdir(out, { recursive: true });
   // files only: DocC makes an empty `images/<bundle-id>/` when the repo has no catalog
@@ -58,9 +64,24 @@ export async function exportArchive(archive: string, module: string, out: string
   }
   for await (const page of glob('**/*.md', { cwd: join(archive, 'data') })) {
     const md = await readFile(join(archive, 'data', page), 'utf8');
-    await mkdir(dirname(join(out, page)), { recursive: true });
-    await writeFile(join(out, page), rewriteLinks(md, page, pages));
+    const file = files.get(`/${page.slice(0, -3)}`) ?? page;
+    await mkdir(dirname(join(out, file)), { recursive: true });
+    const fixed = rewriteLinks(md, file, files)
+      // DocC leaves `_` unescaped in titles, so ask(_:_:) would render as ask(<em>:</em>:)
+      .replace(/^# .*/m, (h) => h.replace(/_/g, '\\_'))
+      // DocC writes declarations in unlabeled code blocks; label them for syntax highlighting
+      .replace(/^```(.*)\n([\s\S]*?^```)$/gm, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
+    await writeFile(join(out, file), fixed);
   }
+}
+
+/** Maps each page identifier, lowercased, to its file in the tree: `<id>/index.md` for a page with child pages, else `<id>.md`. */
+export function pageFiles(identifiers: string[]): Map<string, string> {
+  const ids = new Set(identifiers.map((i) => i.toLowerCase()));
+  const parents = new Set([...ids].map((i) => i.slice(0, i.lastIndexOf('/'))));
+  // a member named `index` keeps its parent at `<id>.md`
+  const index = (id: string) => parents.has(id) && !ids.has(`${id}/index`);
+  return new Map([...ids].map((id) => [id, `${id.slice(1)}${index(id) ? '/index' : ''}.md`]));
 }
 
 // DocC writes `[text](/documentation/Module/Type/member(_:))` (balanced parentheses, unescaped) and
@@ -69,16 +90,23 @@ const docLink = /(!?)\[((?:[^[\]]|\[[^\]]*\])*)\]\(((?:\/documentation\/|images\
 
 /**
  * Makes DocC's links in the page at tree path `page` relative to the tree: a `/documentation/...` link to an identifier
- * in `pages` (lowercase) points at its `.md` file, one to anything else is replaced by its text, and `images/...` points
- * at the tree root's `images/`.
+ * in `files` (from {@link pageFiles}) points at its file, one to anything else is replaced by its text, and `images/...`
+ * points at the tree root's `images/`. So does an unresolved ``doc://<bundle>/documentation/...`` code span.
  */
-export function rewriteLinks(md: string, page: string, pages: Set<string>): string {
+export function rewriteLinks(md: string, page: string, files: Map<string, string>): string {
+  // DocC leaves symbol links in callouts unresolved, as ``doc://<bundle>/documentation/...``; shown by their last path
+  // segment without the overload hash (shortcut: an operator whose name holds `/` shows only its tail)
+  md = md.replace(/``doc:\/\/[^/`]+(\/documentation\/[^`]+)``/g, (_uri, id: string) => {
+    const text = `\`${id.slice(id.lastIndexOf('/') + 1).replace(/-[0-9a-z]{4,6}$/, '')}\``;
+    const file = files.get(id.toLowerCase());
+    return file ? `[${text}](${relative(page, file)})` : text;
+  });
   return md.replace(docLink, (_link, bang: string, text: string, dest: string) => {
     if (bang) return `![${text}](${relative(page, dest)})`;
     const [id, fragment] = dest.split('#');
-    const path = id.toLowerCase();
-    if (!pages.has(path)) return text;
-    return `[${text}](${relative(page, `${path.slice(1)}.md`, fragment)})`;
+    const file = files.get(id.toLowerCase());
+    if (!file) return text;
+    return `[${text}](${relative(page, file, fragment)})`;
   });
 }
 
