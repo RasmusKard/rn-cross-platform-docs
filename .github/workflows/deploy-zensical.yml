@@ -1,0 +1,89 @@
+# Reusable: generates the calling library repo's API reference with rn-cross-platform-docs, builds the Zensical site
+# with @rn-cross-platform-docs/zensical (plugins/zensical, a devDependency of the caller) and deploys it to GitHub Pages.
+name: Deploy docs site
+
+on:
+  workflow_call:
+    # defaults mirror rn-cross-platform-docs's generate.yml; passing '' would override them
+    inputs:
+      platforms:
+        type: string
+        default: '["typescript", "kotlin", "swift"]'
+      install:
+        type: string
+        default: ''
+      node-version:
+        type: string
+        default: '24'
+      xcode-version:
+        type: string
+        default: '27.2'
+      macos-runner:
+        type: string
+        default: xcode-27
+
+jobs:
+  reference:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/generate.yml
+    with:
+      platforms: ${{ inputs.platforms }}
+      install: ${{ inputs.install }}
+      node-version: ${{ inputs.node-version }}
+      xcode-version: ${{ inputs.xcode-version }}
+      macos-runner: ${{ inputs.macos-runner }}
+      artifact-name: api-reference
+
+  build:
+    needs: reference
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: 0.13.5
+      - name: Install dependencies
+        env:
+          INSTALL: ${{ inputs.install }}
+        run: |
+          if [ -n "$INSTALL" ]; then eval "$INSTALL"
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
+          elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          else npm ci
+          fi
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: api-reference-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/parts
+      - run: |
+          mkdir "$RUNNER_TEMP/reference"
+          for t in "$RUNNER_TEMP"/parts/*.tar; do tar -xf "$t" -C "$RUNNER_TEMP/reference"; done
+      - id: pages
+        uses: actions/configure-pages@v6
+      - env:
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: npx --no rn-cross-platform-docs-zensical build --reference "$RUNNER_TEMP/reference" --out "$RUNNER_TEMP/site-project" --site-url "$BASE_URL/"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ runner.temp }}/site-project/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

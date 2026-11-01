@@ -10,7 +10,8 @@ docs/reference/
 ```
 
 It works on Expo modules and bare React Native libraries (Turbo or Nitro modules) that have an example app in
-`example/`. It only writes Markdown; turning the trees into a site is a separate tool's job.
+`example/`. It only writes Markdown; site plugins in `plugins/` turn the trees into a site, e.g.
+[Zensical](plugins/zensical/).
 
 ## Install
 

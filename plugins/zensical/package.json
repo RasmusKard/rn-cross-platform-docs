@@ -1,0 +1,37 @@
+{
+  "name": "@rn-cross-platform-docs/zensical",
+  "version": "0.0.0",
+  "description": "Builds a Zensical docs site from the Markdown API reference made by rn-cross-platform-docs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RasmusKard/rn-cross-platform-docs.git",
+    "directory": "plugins/zensical"
+  },
+  "type": "module",
+  "bin": {
+    "rn-cross-platform-docs-zensical": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "test": "node --test 'test/**/*.test.ts'",
+    "lint": "eslint . && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "22.20.5",
+    "eslint": "9.39.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}
