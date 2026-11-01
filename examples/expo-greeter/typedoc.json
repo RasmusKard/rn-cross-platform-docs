@@ -1,0 +1,5 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "excludeExternals": true,
+  "pageTitleTemplates": { "member": "{name}" }
+}

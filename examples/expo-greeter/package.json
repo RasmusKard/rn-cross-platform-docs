@@ -1,0 +1,41 @@
+{
+  "name": "expo-greeter",
+  "version": "0.0.0",
+  "description": "Minimal Expo module that shows what rn-cross-platform-docs generates",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "docs": "rn-cross-platform-docs generate && rn-cross-platform-docs-zensical build"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "expo-greeter",
+    "ExpoGreeter"
+  ],
+  "repository": "https://github.com/RasmusKard/rn-cross-platform-docs",
+  "bugs": {
+    "url": "https://github.com/RasmusKard/rn-cross-platform-docs/issues"
+  },
+  "author": "Rasmus Kard <rasmuskard@gmail.com> (https://github.com/RasmusKard)",
+  "license": "MIT",
+  "homepage": "https://github.com/RasmusKard/rn-cross-platform-docs#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "@rn-cross-platform-docs/cli": "file:../..",
+    "@rn-cross-platform-docs/zensical": "file:../../plugins/zensical",
+    "@types/react": "~19.3.0",
+    "expo": "^58.0.21",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "typescript": "~6.0.3"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "private": true
+}
