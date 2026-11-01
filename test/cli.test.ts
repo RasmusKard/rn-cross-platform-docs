@@ -21,6 +21,11 @@ await test('an unknown option exits 2 with the message and usage, without a stac
   assert.doesNotMatch(r.stderr, /ERR_PARSE_ARGS|\n\s+at /);
 });
 
+await test('detect prints the detected platforms, one per line', () => {
+  const cwd = new URL('fixtures/bare-turbo', import.meta.url).pathname;
+  assert.equal(execFileSync(process.execPath, [cli, 'detect'], { cwd, encoding: 'utf8' }), 'typescript\nkotlin\n');
+});
+
 await test('detect exits 1 without a native module', () => {
   const r = spawnSync(process.execPath, [cli, 'detect'], { cwd: new URL('fixtures/none', import.meta.url).pathname, encoding: 'utf8' });
   assert.equal(r.status, 1);
