@@ -75,18 +75,76 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
 
-  const { name } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as { name: string };
-  await writeFile(toml, config(name, siteUrl));
+  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
+  await writeFile(toml, config(pkg, siteUrl));
   return dir;
 }
 
-function config(siteName: string, siteUrl?: string): string {
+interface Package {
+  name: string;
+  description?: string;
+  repository?: string | { url?: string };
+}
+
+const shorthandHosts: Record<string, string> = { github: 'github.com', gitlab: 'gitlab.com', bitbucket: 'bitbucket.org' };
+
+/** The web URL of a package.json `repository`, or undefined for a form it doesn't recognize. */
+export function repoUrl(repository: Package['repository']): string | undefined {
+  const r = typeof repository === 'string' ? repository : repository?.url;
+  if (!r) return undefined;
+  const url = /^(?:git\+)?(?:https?|ssh|git):\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?[/:](.+?)(?:\.git)?\/?$/.exec(r);
+  if (url) return `https://${url[1]}/${url[2]}`;
+  const short = /^(?:(github|gitlab|bitbucket):)?([\w.-]+\/[\w.-]+)$/.exec(r);
+  return short ? `https://${shorthandHosts[short[1] ?? 'github']}/${short[2]}` : undefined;
+}
+
+function config({ name, description, repository }: Package, siteUrl?: string): string {
+  const repo = repoUrl(repository);
+  const project = [
+    `site_name = ${JSON.stringify(name)}`,
+    description && `site_description = ${JSON.stringify(description)}`,
+    siteUrl && `site_url = ${JSON.stringify(siteUrl)}`,
+    // also sets edit_uri, which stays unused: no content.action.edit, as the pages aren't the repo's files
+    repo && `repo_url = ${JSON.stringify(repo)}`,
+  ].filter(Boolean);
+  const features = [
+    'content.code.copy',
+    'content.tabs.link',
+    'navigation.indexes',
+    // a no-op without site_url: instant loading only takes links listed in sitemap.xml, which is empty then
+    'navigation.instant',
+    'navigation.instant.prefetch',
+    'navigation.path',
+    'navigation.tabs',
+    'navigation.top',
+    'navigation.tracking',
+    'search.highlight',
+    'toc.follow',
+  ];
   return `${marker}
 [project]
-site_name = ${JSON.stringify(siteName)}
-${siteUrl ? `site_url = ${JSON.stringify(siteUrl)}\n` : ''}
+${project.join('\n')}
+
 [project.theme]
-features = ["navigation.indexes"]
+features = ${JSON.stringify(features)}
+
+# follows the OS setting until the reader picks light or dark
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
 
 # Zensical's built-in awesome-nav replacement; reads docs/**/.nav.yml
 [project.plugins.awesome-nav]

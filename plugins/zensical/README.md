@@ -11,6 +11,10 @@ There is no config to write. The tool generates `zensical.toml` and a nav with o
 the reference pages unchanged. Kotlin and Swift get each type in its own section; TypeScript keeps TypeDoc's folders
 (`interfaces/`, `functions/`, ...).
 
+The site has a header tab per platform, a light/dark toggle that follows the OS setting by default, and breadcrumbs. The
+library's `package.json` supplies the site name (`name`), the meta description (`description`) and the header link to
+the repo (`repository`).
+
 ## Install
 
 The package isn't on npm, and releases don't attach tarballs yet. Until they do, build a tarball from a clone of
@@ -41,7 +45,7 @@ npx rn-cross-platform-docs-zensical build
 |---|---|---|
 | `--reference <dir>` | `docs/reference` | The reference root, as written by `rn-cross-platform-docs generate --out` |
 | `--out <dir>` | `docs-site` | The Zensical project, replaced on each run; the built site is `<out>/site/` |
-| `--site-url <url>` | none | The URL the site is served from, e.g. `https://<owner>.github.io/<repo>/` |
+| `--site-url <url>` | none | The URL the site is served from, e.g. `https://<owner>.github.io/<repo>/`. Also turns on page loads without a full reload. |
 
 Add `<out>` to `.gitignore`. The tool refuses to write into a non-empty directory it didn't create.
 
