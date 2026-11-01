@@ -37,3 +37,9 @@ void test('a failing generator leaves the previous tree in place', async (t) => 
   assert.deepEqual(await readdir(join(root, 'docs/reference')), ['typescript']);
   assert.deepEqual(await readdir(join(root, 'docs/reference/typescript')), ['old.md']);
 });
+
+void test('a requested platform without sources is an error', async () => {
+  const root = new URL('fixtures/bare-turbo', import.meta.url).pathname;
+  await assert.rejects(generate(root, { out: 'docs/reference', platforms: ['typescript', 'swift'] }), /^Error: No swift sources detected in /);
+  assert.ok(!existsSync(join(root, 'docs')), 'nothing is generated');
+});
