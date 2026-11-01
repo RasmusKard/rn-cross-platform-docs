@@ -3,13 +3,17 @@
 Builds a [Zensical](https://zensical.org) docs site for a React Native native module from three inputs:
 
 - `README.md`: the home page
-- `guides/`: guide pages, linked from the README as `guides/*.md`
+- `guides/`: guide pages, linked from the README as `guides/*.md`; the nav lists them in the order the README links
+  them, then the rest, unless `guides/.nav.yml` sets its own
 - the Markdown API reference made by [rn-cross-platform-docs](../../README.md)
   (`typescript/`, `kotlin/`, `swift/`)
 
 There is no config to write. The tool generates `zensical.toml` and a nav with one section per platform, and copies
-the reference pages unchanged. Kotlin and Swift get each type in its own section; TypeScript keeps TypeDoc's folders
-(`interfaces/`, `functions/`, ...).
+the reference pages, dropping what precedes each page's title: TypeDoc's page header and breadcrumbs and Dokka's
+breadcrumb, which the site's own breadcrumbs replace, and DocC's metadata comment. Kotlin package pages are titled by
+package name, not Dokka's "Package-level declarations". Kotlin and Swift get each type in its own section, and a
+library with one Kotlin package opens the Kotlin tab on it; TypeScript keeps TypeDoc's folders (`interfaces/`,
+`functions/`, ...).
 
 The site has a header tab per platform, a light/dark toggle that follows the OS setting by default, and breadcrumbs. The
 library's `package.json` supplies the site name (`name`), the meta description (`description`) and the header link to
@@ -82,8 +86,8 @@ jobs:
 The site shows the reference as generated, including the gaps listed in rn-cross-platform-docs' README. On top of
 those:
 
-- Zensical reads underscores in Swift symbol names as emphasis, so `ask(_:_:_:)` shows as `ask(:_::)` in the nav,
-  page title and search.
-- Kotlin links to inherited members point to anchors that don't exist.
-- TypeScript's `_media/` folder is left out of the nav but still built, so Zensical warns about it.
-- TypeDoc's `documents/` section repeats the guides under TypeScript.
+- Swift deprecation, which DocC only writes in the metadata comment, doesn't show.
+- Kotlin links to inherited members point to anchors that don't exist; Zensical's build lists them as warnings.
+- TypeDoc's copies of the guides (`documents/`) are left out of the nav, but search lists each guide twice.
+- In those copies, links to files outside `guides/`, such as the README, don't resolve: TypeDoc copies the targets to
+  `_media/`, which the site leaves out.

@@ -6,12 +6,18 @@ export type NavItem = string | { [title: string]: string | NavItem[] };
 
 /**
  * Returns the `.nav.yml` contents for the Kotlin or Swift tree at `dir`: an explicit nav that titles each type's
- * section by its page's H1.
+ * section by its page's H1. Swift's `documentation/<module>` level is dropped. Kotlin lists the packages after the root
+ * page, or, with one package, shows that package's section in place of the root page, which only lists it.
  */
 export async function platformNav(dir: string): Promise<{ nav: NavItem[] }> {
   const nav = await section(dir, '');
-  // a tree holding one section (Swift's documentation/<module>) shows its contents directly
-  return { nav: nav.length === 1 && typeof nav[0] !== 'string' ? (Object.values(nav[0])[0] as NavItem[]) : nav };
+  if (nav.length === 1 && typeof nav[0] !== 'string') return { nav: Object.values(nav[0])[0] as NavItem[] };
+  if (nav.length !== 2 || nav[0] !== 'index.md' || typeof nav[1] === 'string') return { nav };
+  // Dokka's <module>/ folder: one package's section, or a page-less section of packages
+  const inner = Object.values(nav[1])[0] as NavItem[];
+  const module = (await readdir(dir, { withFileTypes: true })).find((e) => e.isDirectory())!.name;
+  const packages = (await readdir(join(dir, module), { withFileTypes: true })).filter((e) => e.isDirectory());
+  return { nav: packages.length === 1 ? inner : ['index.md', ...inner] };
 }
 
 async function section(root: string, rel: string): Promise<NavItem[]> {
@@ -26,7 +32,11 @@ async function section(root: string, rel: string): Promise<NavItem[]> {
     if (e.isDirectory()) {
       const f = await folder(root, path(e.name), names.has(`${e.name}.md`));
       if (f) items.push(f);
-    } else if (e.name.endsWith('.md') && !dirs.has(e.name.slice(0, -3))) items.push(path(e.name));
+    } else if (e.name.endsWith('.md') && !dirs.has(e.name.slice(0, -3))) {
+      // Dokka's constructors page is named, and titled, like its class: -greeting-options/-greeting-options.md
+      const constructors = basename(rel).startsWith('-') && e.name === `${basename(rel)}.md`;
+      items.push(constructors ? { constructor: path(e.name) } : path(e.name));
+    }
   }
   // index.md first, so it becomes the section's page (navigation.indexes)
   const i = items.indexOf(path('index.md'));
@@ -35,9 +45,9 @@ async function section(root: string, rel: string): Promise<NavItem[]> {
 }
 
 /**
- * The section for folder `rel`, titled by the H1 of its page: its own `index.md` (Dokka) or the sibling `<rel>.md`
- * (DocC), which comes first. A folder without a page is titled by name. A folder holding only its page, or only one
- * section, is replaced by it. A folder without pages (DocC's images/) is left out.
+ * The section for folder `rel`, titled by the H1 of its page: its own `index.md`, or the sibling `<rel>.md` (a DocC type
+ * with a member named `index`), which comes first. A folder without a page is titled by name. A folder holding only its
+ * page, or only one section, is replaced by it. A folder without pages (DocC's images/) is left out.
  */
 async function folder(root: string, rel: string, hasSibling: boolean): Promise<NavItem | undefined> {
   const children = await section(root, rel);
@@ -48,8 +58,7 @@ async function folder(root: string, rel: string, hasSibling: boolean): Promise<N
   return { [(page && (await h1(join(root, page)))) || basename(rel)]: children };
 }
 
-// Dokka titles every package page "Package-level declarations"; the folder name is the package name
+// unescaped: rn-cross-platform-docs escapes `_` in DocC titles
 async function h1(file: string): Promise<string | undefined> {
-  const title = /^# (.+)$/m.exec(await readFile(file, 'utf8'))?.[1].trim();
-  return title === 'Package-level declarations' ? undefined : title;
+  return /^# (.+)$/m.exec(await readFile(file, 'utf8'))?.[1].trim().replace(/\\(.)/g, '$1');
 }

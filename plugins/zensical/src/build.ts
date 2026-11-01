@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { cp, glob, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { platformNav, type NavItem } from './nav.ts';
 
 /** Zensical version and the date its unpinned Python dependencies are resolved at (`uvx --exclude-newer`). */
@@ -38,6 +38,8 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
 
 /**
  * Writes `zensical.toml` and `docs/` (README.md, guides/, one tree per platform, `.nav.yml` files) to `options.out`.
+ * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), and Kotlin package
+ * pages are titled by package name.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -65,19 +67,52 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   if (existsSync(join(root, 'guides'))) {
     await cp(join(root, 'guides'), join(docs, 'guides'), { recursive: true });
     nav.push({ Guides: 'guides' });
+    const guides = join(docs, 'guides/.nav.yml');
+    if (!existsSync(guides)) await writeFile(guides, JSON.stringify(await guidesNav(root, docs)));
   }
   for (const [p, title] of present) {
     await cp(join(ref, p), join(docs, p), { recursive: true });
+    await tidyPages(join(docs, p));
     nav.push({ [title]: p });
-    // TypeScript keeps TypeDoc's folders and only hides `_media/`
-    const platformFile = p === 'typescript' ? { ignore: '_*' } : await platformNav(join(docs, p));
+    // TypeScript keeps TypeDoc's folders, minus `_media/` and `documents/` (the guides, already under Guides)
+    const platformFile = p === 'typescript' ? { ignore: ['_*', 'documents'] } : await platformNav(join(docs, p));
     await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(platformFile));
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
+  // the theme sets h5 in capitals, which TypeDoc uses for parameter names
+  await writeFile(join(docs, 'extra.css'), '.md-typeset h5 { text-transform: none; }\n');
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
   await writeFile(toml, config(pkg, siteUrl));
   return dir;
+}
+
+// TypeDoc's page header and breadcrumbs, Dokka's `//[lib]/[package]/...` breadcrumb and DocC's metadata comment come
+// before the H1: they repeat the site's breadcrumbs, and Zensical's search gives the text before an H1 its own entry,
+// listing each page twice. Dokka titles every package page "Package-level declarations"; its folder is named after the
+// package.
+async function tidyPages(dir: string): Promise<void> {
+  for await (const page of glob('**/*.md', { cwd: dir })) {
+    const md = await readFile(join(dir, page), 'utf8');
+    const pkg = basename(dirname(page));
+    const tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
+    await writeFile(join(dir, page), tidy);
+  }
+}
+
+// keeps front matter; a page whose first `# ` line follows a code fence (no H1) stays whole
+function dropBeforeH1(md: string): string {
+  const front = /^---\n[\s\S]*?\n---\n/.exec(md)?.[0] ?? '';
+  const rest = md.slice(front.length);
+  const first = /^(?:# |```|~~~)/m.exec(rest);
+  return first?.[0] === '# ' ? front + rest.slice(first.index) : md;
+}
+
+/** The guides in the order the README links them, then the rest. */
+async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }> {
+  const readme = await readFile(join(root, 'README.md'), 'utf8');
+  const linked = [...readme.matchAll(/\]\((?:\.\/)?guides\/([^)#\s]+\.md)/g)].map((m) => m[1]);
+  return { nav: [...new Set(linked)].filter((f) => existsSync(join(docs, 'guides', f))).concat('*') };
 }
 
 interface Package {
@@ -106,6 +141,9 @@ function config({ name, description, repository }: Package, siteUrl?: string): s
     siteUrl && `site_url = ${JSON.stringify(siteUrl)}`,
     // also sets edit_uri, which stays unused: no content.action.edit, as the pages aren't the repo's files
     repo && `repo_url = ${JSON.stringify(repo)}`,
+    'extra_css = ["extra.css"]',
+    // TypeDoc's copies of files that documents link to, such as the README, whose own links don't resolve there
+    'exclude_docs = """\ntypescript/_media/*.md\n"""',
   ].filter(Boolean);
   const features = [
     'content.code.copy',
@@ -158,6 +196,8 @@ def_list = {}
 footnotes = {}
 md_in_html = {}
 toc.permalink = true
+# member headings only; TypeDoc's Parameters/Returns headings under each member would crowd the page TOC
+toc.toc_depth = 3
 pymdownx.arithmatex.generic = true
 pymdownx.betterem = {}
 pymdownx.caret = {}
