@@ -49,8 +49,8 @@ To preview, serve the built site with any static server, e.g. `uv run --no-proje
 ## Deploy to GitHub Pages
 
 A reusable workflow runs rn-cross-platform-docs' `generate.yml`, builds the site with this package and deploys it.
-It takes the same inputs as `generate.yml` except `artifact-name`, and passes them on; see the
-[rn-cross-platform-docs README](../../README.md#github-actions) for the inputs. Both
+It takes the same inputs as `generate.yml` except `artifact-name`, and passes them on; see
+[`generate.yml`](../../.github/workflows/generate.yml) for the inputs. Both
 packages must be devDependencies of the calling repo ([this package](#install),
 [rn-cross-platform-docs](../../README.md#install)), and the repo's Pages source
 must be set to GitHub Actions (Settings → Pages).
@@ -74,8 +74,7 @@ jobs:
 
 ## Known gaps
 
-The site shows the reference as generated, including the gaps listed in rn-cross-platform-docs' README. On top of
-those:
+The site shows the reference as generated, with its generators' gaps. On top of those:
 
 - Swift deprecation, which DocC only writes in the metadata comment, doesn't show.
 - Kotlin links to inherited members point to anchors that don't exist; Zensical's build lists them as warnings.

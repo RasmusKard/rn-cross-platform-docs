@@ -1,6 +1,7 @@
 # rn-cross-platform-docs
 
-Generates Markdown API reference for a React Native native module, one tree per platform:
+A thin wrapper of ~450 lines around TypeDoc, Dokka and DocC that writes a React Native native module's API reference
+as Markdown, one tree per platform, with plugins that turn it into a doc site.
 
 ```
 docs/reference/
@@ -9,27 +10,19 @@ docs/reference/
   swift/        DocC Markdown output
 ```
 
-It works on Expo modules and bare React Native libraries (Turbo or Nitro modules) that have an example app in
-`example/`. It only writes Markdown; site plugins in `plugins/` turn the trees into a site, e.g.
-[Zensical](plugins/zensical/). [examples/expo-greeter](examples/expo-greeter/) is a minimal Expo module to try it on.
+It works on Expo modules and on bare React Native libraries (Turbo or Nitro modules) with an example app in
+`example/`. Site plugins: [Zensical](plugins/zensical/). [examples/expo-greeter](examples/expo-greeter/) is a minimal
+Expo module to try it on.
 
 ## Install
-
-The tool runs your repo's own TypeDoc, so TypeDoc and the Markdown plugin are peer dependencies:
 
 ```sh
 npm install --save-dev @rn-cross-platform-docs/cli typedoc@0.28.20 typedoc-plugin-markdown@4.14.1
 ```
 
-It installs the `rn-cross-platform-docs` command.
-
-Each platform needs its own toolchain:
-
-| Platform | Needs |
-|---|---|
-| TypeScript | Node 22 or later |
-| Kotlin | JDK 17 and the Android SDK, as for building the example app |
-| Swift | macOS with Xcode 27.2 and CocoaPods |
+TypeDoc and its Markdown plugin are peer dependencies, so the tool runs your repo's own. It needs Node 22 or later,
+plus the toolchain that builds the example app: JDK 17 and the Android SDK for Kotlin, macOS with Xcode 27.2 and
+CocoaPods for Swift.
 
 ## Generate
 
@@ -42,51 +35,34 @@ npx rn-cross-platform-docs generate
 | Option | Default | |
 |---|---|---|
 | `--out <dir>` | `docs/reference` | Output root; each platform replaces `<out>/<platform>/` |
-| `--platforms <list>` | all detected | Comma-separated subset of `typescript,kotlin,swift`, e.g. one per CI runner |
+| `--platforms <list>` | all detected | Comma-separated subset of `typescript,kotlin,swift` |
 
-Platforms run in order and the first failure stops the run: the failing platform keeps its previous tree, the ones
-before it are already replaced and the ones after it keep theirs. A killed run can leave a `.<platform>-*` directory in
-`<out>`.
+`npx rn-cross-platform-docs detect` prints the detected platforms. Platforms run in order and the first failure stops
+the run, leaving the failed platform's previous tree in place. Failures exit 1, usage errors exit 2.
 
-`npx rn-cross-platform-docs detect` prints the detected platforms, one per line: what `generate` runs without
-`--platforms`. Either command exits 1 with `rn-cross-platform-docs: <message>` when it fails, for example on a repo
-with no native module. A usage error (an unknown command, option or platform, or a missing option value) prints the
-message and the usage to stderr and exits 2.
-
-There is no config file. The tool reads `package.json`, `expo-module.config.json`, `nitro.json`, the podspec and
-`android/` to decide which platforms exist and how to build them. A repo without `expo-module.config.json` or a
-committed example app (`example/android/settings.gradle`, `example/android/settings.gradle.kts` or
-`example/ios/Podfile`) is rejected. For an Expo module, a `platforms` list in `expo-module.config.json` also gates
-Kotlin and Swift.
+There is no config file. The tool detects platforms from `package.json`, `expo-module.config.json` (including its
+`platforms` list), `nitro.json`, the podspec and `android/`. A bare library needs a committed example app
+(`example/android/settings.gradle(.kts)` or `example/ios/Podfile`).
 
 ### What it runs in your repo
 
-Dokka and DocC run the compiler, so the tool builds the library inside the example app, in place. It runs what the
-repo's developers already run there:
+Dokka and DocC need the library compiled, so the tool builds it inside the example app, in place, with the commands the
+repo's developers already run:
 
-| Step | Command | When |
-|---|---|---|
-| Library codegen | `npx nitrogen` (the library's own install) | Nitro modules (`nitro.json`), before Kotlin and Swift |
-| Native projects | `npx expo prebuild --platform <android\|ios> --no-install` in `example/` | Expo modules |
-| CocoaPods | `pod install` in `example/ios` | Swift |
-| TypeScript | TypeDoc on the repo's TypeDoc config (`typedoc.json`, `.config/typedoc.json`, ...), or `src/index.ts(x)` when it sets no `entryPoints` | always |
-| Kotlin | React Native codegen (with `codegenConfig` in `package.json`), then Dokka through the tool's init script, in `example/android` | Kotlin sources in `android/` |
-| Swift | `xcodebuild docbuild` in `example/ios`, with DocC's Markdown output | Swift sources in `ios/` and a podspec (`ios/*.podspec` or `*.podspec`) |
-
-The init script adds Dokka to the example app's build only; the library's build files stay untouched. A library that
-already applies Dokka (`org.jetbrains.dokka`) in `android/build.gradle` or `android/build.gradle.kts` is rejected. On a
-bare library, `pod install` rewrites the example app's committed Xcode project, as it does for any developer.
-
-TypeDoc plugins given as local files in the repo's config are dropped, since they usually customize the HTML theme;
-plugins from packages stay. The Markdown plugin titles pages with their kind, e.g. `Function: createBridge()`, which
-site navs show as is; to title them by name only, set `"pageTitleTemplates": { "member": "{name}" }` in the config.
+- Nitro modules: `npx nitrogen`.
+- Expo modules: `npx expo prebuild --platform <android|ios> --no-install` in `example/`.
+- Kotlin: React Native codegen (with `codegenConfig` in `package.json`), then Dokka in `example/android` through an
+  init script. The library's build files stay untouched; a library that already applies Dokka is rejected.
+- Swift: `pod install`, then `xcodebuild docbuild` in `example/ios`. On a bare library, `pod install` rewrites the
+  example app's committed Xcode project.
+- TypeScript: TypeDoc on the repo's own config, or on `src/index.ts(x)` when it sets no `entryPoints`. Plugins given
+  as local files are dropped, since they usually customize the HTML theme.
 
 ## GitHub Actions
 
-A reusable workflow runs each platform on its own runner (Swift on macOS, the rest on Ubuntu) and uploads one artifact
-per platform, `api-reference-<platform>`, holding `<platform>.tar`. Download them with `actions/download-artifact`'s
-`pattern: api-reference-*` and `merge-multiple: true`, then untar each. The jobs run the repo's own installed CLI, so
-add it as a dev dependency as in [Install](#install); the workflow asks only for `permissions: contents: read`.
+A reusable workflow runs each platform on its own runner and uploads one artifact per platform,
+`api-reference-<platform>`, holding `<platform>.tar`. Its inputs are described in
+[generate.yml](.github/workflows/generate.yml). It runs the repo's installed CLI, so add it as in [Install](#install).
 
 ```yaml
 name: API reference
@@ -96,57 +72,12 @@ jobs:
     uses: RasmusKard/rn-cross-platform-docs/.github/workflows/generate.yml@main
 ```
 
-Pin a commit or release tag instead of `main`. Inputs, all optional:
+Pin a commit or release tag instead of `main`. Fetch the artifacts with `actions/download-artifact`
+(`pattern: api-reference-*`, `merge-multiple: true`) and untar each.
 
-| Input | Default |
-|---|---|
-| `platforms` | `'["typescript", "kotlin", "swift"]'` (a JSON array); a platform the repo has no sources for is skipped with a notice, after its runner has been set up and the dependencies installed |
-| `install` | picks yarn, pnpm or npm from the lockfile (npm also runs `npm ci` in `example/` when it has a `package-lock.json`); a bun repo, or any other setup, sets this |
-| `node-version` | `24` |
-| `xcode-version` / `macos-runner` | `27.2` / `xcode-27`; an empty `xcode-version` keeps the runner's default Xcode |
-| `artifact-name` | `api-reference`; the prefix of the per-platform artifact names |
+## Output
 
-## Hide what is public only for the framework
-
-The reference holds the public API as each language defines it. Expo and React Native need some types to be public
-that aren't meant for users, such as the Expo `Module` subclass. Hide them where they're declared:
-
-```kotlin
-/**
- * Public only for Expo's autolinking.
- *
- * @suppress
- */
-class MyModule : Module() { ... }
-```
-
-```swift
-@_documentation(visibility: internal)
-public class MyModule: Module { ... }
-```
-
-ObjC headers are public unless the podspec scopes them, for example
-`s.private_header_files = "ios/**/*.h"`.
-
-Generated code is documented too. Nitro's generated Kotlin and Swift specs, and C++ declared in its public headers,
-show up in the reference, and since nitrogen regenerates them they can't be annotated.
-
-## Known gaps in DocC's Markdown
-
-The Swift tree is DocC's experimental Markdown output, with these changes:
-
-- Symbol links and image paths are rewritten into relative `.md` links (a link to a symbol outside the module becomes
-  plain text), including the ``` ``doc://...`` ``` links DocC leaves unresolved in callouts.
-- A page with child pages is written to `<page>/index.md`, e.g. `documentation/mymodule/mytype/index.md`.
-- `_` in page titles is escaped, which DocC leaves to read as emphasis.
-- Code blocks without a language, such as DocC's declarations, are labeled `swift`.
-- Members that protocol conformances add to each type (synthesized members, such as `Equatable`'s `!=`) are left out.
-
-As of Xcode 27.2, the gaps are:
-
-- Type and module pages don't list their members unless the docs catalog curates them with `## Topics`. Fixed in
-  swift-docc's `main` ([#1625](https://github.com/swiftlang/swift-docc/pull/1625)), not yet in an Xcode release.
-- Overloads share a title; their file names differ by a hash, e.g. `run(_:)-8uxly.md`.
-- Deprecation appears only in the metadata comment at the top of the page.
-- Callouts (`- Note:`, `- Important:`) stay plain blockquotes, `> Note: ...`.
-- File names contain `(`, `)`, `:`, `!` and `=`, e.g. `!=(_:_:).md`; Windows can't check them out.
+TypeDoc's and Dokka's Markdown is kept as written. DocC's is adjusted: symbol links and image paths become relative
+`.md` links, a page with child pages moves to `<page>/index.md`, unlabeled code blocks are labeled `swift`, and members
+that protocol conformances add to each type are left out. Swift file names contain characters such as `:` and `!`, so
+Windows can't check out the Swift tree.

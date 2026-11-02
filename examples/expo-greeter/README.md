@@ -3,8 +3,7 @@
 A minimal Expo module, made with `create-expo-module`, that shows what
 [rn-cross-platform-docs](https://github.com/RasmusKard/rn-cross-platform-docs) generates. It has one constant, one
 function, one async function and one event, documented in TypeScript, Kotlin and Swift. The native `Module` classes
-are hidden from the reference, as the main README
-[recommends](https://github.com/RasmusKard/rn-cross-platform-docs#hide-what-is-public-only-for-the-framework).
+are hidden from the reference with Dokka's `@suppress` and Swift's `@_documentation(visibility: internal)`.
 
 ## Usage
 
