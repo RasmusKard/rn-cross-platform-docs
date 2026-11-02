@@ -24,6 +24,10 @@ on:
         description: Runner label with `xcode-version` installed
         type: string
         default: xcode-27
+      working-directory:
+        description: Directory of the library within the repo; every step runs there
+        type: string
+        default: .
       artifact-name:
         description: Prefix of the uploaded artifacts, named `<artifact-name>-<platform>`; each holds `<platform>.tar`
         type: string
@@ -38,6 +42,9 @@ jobs:
       matrix:
         platform: ${{ fromJSON(inputs.platforms) }}
     runs-on: ${{ matrix.platform == 'swift' && inputs.macos-runner || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
     env:
       PLATFORM: ${{ matrix.platform }}
     steps:
