@@ -51,7 +51,10 @@ await test('a bare Nitro library with committed example projects', async () => {
 });
 
 await test('a repo with no native module throws, naming what was looked for', async () => {
-  await assert.rejects(detectLibrary(fixture('none')), /No React Native native module .*expo-module\.config\.json.*example\/ios\/Podfile/);
+  await assert.rejects(
+    detectLibrary(fixture('none')),
+    /No React Native native module .*expo-module\.config\.json.*example\/ios\/Podfile/,
+  );
 });
 
 await test('a bare Turbo module with codegenConfig and no Swift', async () => {

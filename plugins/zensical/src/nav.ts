@@ -60,5 +60,8 @@ async function folderNav(root: string, rel: string, hasSibling: boolean): Promis
 
 // unescaped: rn-cross-platform-docs escapes `_` in DocC titles
 async function readH1(file: string): Promise<string | undefined> {
-  return /^# (.+)$/m.exec(await readFile(file, 'utf8'))?.[1].trim().replace(/\\(.)/g, '$1');
+  return /^# (.+)$/m
+    .exec(await readFile(file, 'utf8'))?.[1]
+    .trim()
+    .replace(/\\(.)/g, '$1');
 }

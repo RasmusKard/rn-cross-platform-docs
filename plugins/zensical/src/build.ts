@@ -32,7 +32,9 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
   }
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(`\`${['uvx', ...args].join(' ')}\` in ${out} failed with ${result.signal ?? `exit code ${result.status}`}`);
+    throw new Error(
+      `\`${['uvx', ...args].join(' ')}\` in ${out} failed with ${result.signal ?? `exit code ${result.status}`}`,
+    );
   }
 }
 
@@ -47,7 +49,9 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   const projectDir = resolve(root, out);
   const presentPlatforms = platforms.filter(([p]) => existsSync(join(referenceDir, p)));
   if (!presentPlatforms.length) {
-    throw new Error(`no typescript/, kotlin/ or swift/ in ${referenceDir}; run \`rn-cross-platform-docs generate\` first`);
+    throw new Error(
+      `no typescript/, kotlin/ or swift/ in ${referenceDir}; run \`rn-cross-platform-docs generate\` first`,
+    );
   }
   if (!existsSync(join(root, 'README.md'))) throw new Error(`no README.md in ${root}; it is the site's home page`);
   const toml = join(projectDir, 'zensical.toml');
@@ -121,7 +125,11 @@ interface Package {
   repository?: string | { url?: string };
 }
 
-const shorthandHosts: Record<string, string> = { github: 'github.com', gitlab: 'gitlab.com', bitbucket: 'bitbucket.org' };
+const shorthandHosts: Record<string, string> = {
+  github: 'github.com',
+  gitlab: 'gitlab.com',
+  bitbucket: 'bitbucket.org',
+};
 
 /** The web URL of a package.json `repository`, or undefined for a form it doesn't recognize. */
 export function repoUrl(repository: Package['repository']): string | undefined {

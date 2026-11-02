@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "singleQuote": true,
+  "ignorePatterns": [
+    "*.md",
+    "package-lock.json",
+    "test/fixtures",
+    "examples",
+    ".claude",
+    ".github/.release-please-manifest.json"
+  ],
+  "sortPackageJson": false
+}

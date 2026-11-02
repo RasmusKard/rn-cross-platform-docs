@@ -20,7 +20,11 @@ await test('writes the config, inputs and nav for the platforms present', async 
   const root = library();
   writeFileSync(
     join(root, 'package.json'),
-    JSON.stringify({ name: 'my-lib', description: 'Does things', repository: { url: 'git+https://github.com/me/my-lib.git' } }),
+    JSON.stringify({
+      name: 'my-lib',
+      description: 'Does things',
+      repository: { url: 'git+https://github.com/me/my-lib.git' },
+    }),
   );
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site', siteUrl: 'https://x.dev/' });
   const toml = readFileSync(join(out, 'zensical.toml'), 'utf8');
@@ -53,9 +57,15 @@ await test('repoUrl turns package.json repository forms into web URLs', () => {
 
 await test('drops what precedes each reference page H1', async () => {
   const root = library();
-  writeFileSync(join(root, 'docs/reference/kotlin/index.md'), '//[my-lib](index.md)\n\n# my-lib\n\n// not a breadcrumb');
+  writeFileSync(
+    join(root, 'docs/reference/kotlin/index.md'),
+    '//[my-lib](index.md)\n\n# my-lib\n\n// not a breadcrumb',
+  );
   mkdirSync(join(root, 'docs/reference/swift/documentation/m'), { recursive: true });
-  writeFileSync(join(root, 'docs/reference/swift/documentation/m/index.md'), '<!--\n{\n  "title" : "M"\n}\n-->\n\n# M\n\n<!-- kept -->');
+  writeFileSync(
+    join(root, 'docs/reference/swift/documentation/m/index.md'),
+    '<!--\n{\n  "title" : "M"\n}\n-->\n\n# M\n\n<!-- kept -->',
+  );
   mkdirSync(join(root, 'docs/reference/typescript'));
   writeFileSync(join(root, 'docs/reference/typescript/README.md'), '[**my-lib**](README.md)\n\n***\n\n# my-lib\n\n***');
   writeFileSync(join(root, 'docs/reference/typescript/front.md'), '---\ntitle: T\n---\n[x](README.md)\n\n# T');
@@ -72,14 +82,20 @@ await test('drops what precedes each reference page H1', async () => {
 await test('titles Kotlin package pages by package name', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example'), { recursive: true });
-  writeFileSync(join(root, 'docs/reference/kotlin/lib/com.example/index.md'), '//[lib](../../index.md)/[com.example](index.md)\n\n# Package-level declarations\n');
+  writeFileSync(
+    join(root, 'docs/reference/kotlin/lib/com.example/index.md'),
+    '//[lib](../../index.md)/[com.example](index.md)\n\n# Package-level declarations\n',
+  );
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(readFileSync(join(out, 'docs/kotlin/lib/com.example/index.md'), 'utf8'), '# com.example\n');
 });
 
 await test('orders guides as the README links them, then the rest, and keeps a guides/.nav.yml of its own', async () => {
   const root = library();
-  writeFileSync(join(root, 'README.md'), '# my-lib\n\n[B](guides/b.md#x), [gone](guides/gone.md), [A](./guides/a.md), [B again](guides/b.md)');
+  writeFileSync(
+    join(root, 'README.md'),
+    '# my-lib\n\n[B](guides/b.md#x), [gone](guides/gone.md), [A](./guides/a.md), [B again](guides/b.md)',
+  );
   writeFileSync(join(root, 'guides/b.md'), '# B');
   writeFileSync(join(root, 'guides/c.md'), '# C');
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
@@ -96,9 +112,14 @@ await test('TypeScript hides _media/ and documents/', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/typescript'));
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
-  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/typescript/.nav.yml'), 'utf8')), { ignore: ['_*', 'documents'] });
+  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/typescript/.nav.yml'), 'utf8')), {
+    ignore: ['_*', 'documents'],
+  });
   // Zensical only reads exclude_docs as a multiline string
-  assert.match(readFileSync(join(out, 'zensical.toml'), 'utf8'), /^exclude_docs = """\ntypescript\/_media\/\*\.md\n"""$/m);
+  assert.match(
+    readFileSync(join(out, 'zensical.toml'), 'utf8'),
+    /^exclude_docs = """\ntypescript\/_media\/\*\.md\n"""$/m,
+  );
 });
 
 await test('replaces its own project on a rebuild, and drops removed pages', async () => {
@@ -111,18 +132,27 @@ await test('replaces its own project on a rebuild, and drops removed pages', asy
 
 await test('refuses a non-empty directory it did not write', async () => {
   const root = library();
-  await assert.rejects(writeProject(root, { reference: 'docs/reference', out: 'guides' }), /wasn't written by this tool/);
+  await assert.rejects(
+    writeProject(root, { reference: 'docs/reference', out: 'guides' }),
+    /wasn't written by this tool/,
+  );
   assert.ok(existsSync(join(root, 'guides/a.md')));
 });
 
 await test('refuses a reference dir with no platform trees', async () => {
-  await assert.rejects(writeProject(library(), { reference: 'guides', out: 'docs-site' }), /run `rn-cross-platform-docs generate` first/);
+  await assert.rejects(
+    writeProject(library(), { reference: 'guides', out: 'docs-site' }),
+    /run `rn-cross-platform-docs generate` first/,
+  );
 });
 
 await test('refuses a library without README.md', async () => {
   const root = library();
   rmSync(join(root, 'README.md'));
-  await assert.rejects(writeProject(root, { reference: 'docs/reference', out: 'docs-site' }), /no README\.md in .*; it is the site's home page/);
+  await assert.rejects(
+    writeProject(root, { reference: 'docs/reference', out: 'docs-site' }),
+    /no README\.md in .*; it is the site's home page/,
+  );
 });
 
 await test('an empty platform tree gets an empty nav', async () => {
@@ -146,5 +176,8 @@ await test('refuses a reference dir inside the output dir', async () => {
   const root = library();
   await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   mkdirSync(join(root, 'docs-site/ref/kotlin'), { recursive: true });
-  await assert.rejects(writeProject(root, { reference: 'docs-site/ref', out: 'docs-site' }), /--reference must be outside --out/);
+  await assert.rejects(
+    writeProject(root, { reference: 'docs-site/ref', out: 'docs-site' }),
+    /--reference must be outside --out/,
+  );
 });
