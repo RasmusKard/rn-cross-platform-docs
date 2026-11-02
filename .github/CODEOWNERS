@@ -1,0 +1,8 @@
+/.github/ @RasmusKard
+/scripts/ @RasmusKard
+/package.json @RasmusKard
+/package-lock.json @RasmusKard
+/.npmrc @RasmusKard
+/plugins/zensical/package.json @RasmusKard
+/plugins/zensical/package-lock.json @RasmusKard
+/plugins/zensical/.npmrc @RasmusKard
