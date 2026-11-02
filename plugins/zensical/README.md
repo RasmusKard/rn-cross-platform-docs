@@ -42,9 +42,7 @@ npx rn-cross-platform-docs-zensical build
 | `--out <dir>` | `docs-site` | The Zensical project, replaced on each run; the built site is `<out>/site/` |
 | `--site-url <url>` | none | The URL the site is served from, e.g. `https://<owner>.github.io/<repo>/`. Also turns on page loads without a full reload. |
 
-Add `<out>` to `.gitignore`. The tool refuses to write into a non-empty directory it didn't create.
-
-To preview, serve the built site with any static server, e.g. `uv run --no-project python -m http.server -d docs-site/site`.
+The tool refuses to write into a non-empty directory it didn't create.
 
 ## Deploy to GitHub Pages
 

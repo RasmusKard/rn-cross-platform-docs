@@ -20,11 +20,7 @@ docs/reference/
 npm install --save-dev @rn-cross-platform-docs/cli typedoc@0.28.20 typedoc-plugin-markdown@4.14.1
 ```
 
-Requirements:
-
-- Node 22 or later
-- Kotlin: JDK 17, Android SDK
-- Swift: macOS, Xcode 27.2, CocoaPods
+Requires Node 22 or later.
 
 ## Generate
 
@@ -61,7 +57,6 @@ Builds the library inside the example app, in place, since Dokka and DocC need i
 | TypeScript | TypeDoc on the repo's own config, with Markdown output added |
 
 - The library's build files stay untouched; a library that already applies Dokka is rejected
-- Bare libraries: `pod install` rewrites the example app's committed Xcode project
 - TypeDoc defaults, where the repo's config sets neither: `readme: "none"`, entry point `src/index.ts(x)`
 
 ## GitHub Actions
@@ -77,10 +72,8 @@ jobs:
     uses: RasmusKard/rn-cross-platform-docs/.github/workflows/generate.yml@main
 ```
 
-- Pin a commit or release tag instead of `main`
 - Needs the CLI as a dev dependency ([Install](#install))
 - Inputs: see [generate.yml](.github/workflows/generate.yml)
-- Download: `actions/download-artifact` with `pattern: api-reference-*` and `merge-multiple: true`, then untar each
 
 ## Output
 
