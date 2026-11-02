@@ -21,5 +21,5 @@ export interface Library {
   podName?: string;
 }
 
-/** Writes one platform's Markdown tree to `out`, replacing what is there. */
+/** Writes one platform's Markdown tree to `out`, a new empty directory. */
 export type Generator = (library: Library, out: string) => Promise<void>;

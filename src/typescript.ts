@@ -1,17 +1,11 @@
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import type { OptionsReader } from 'typedoc';
+import { Application, PackageJsonReader, TSConfigReader, TypeDocReader, type OptionsReader } from 'typedoc';
 import type { Generator } from './library.ts';
 
 /** Runs TypeDoc with typedoc-plugin-markdown on the repo's own TypeDoc config. */
 export const generateTypeScript: Generator = async (library, out) => {
-  // loaded here so the other generators work without TypeDoc installed
-  const typedoc = await import('typedoc');
-  if (!typedoc.Application.VERSION.startsWith('0.28.')) {
-    throw new Error(`TypeDoc ${typedoc.Application.VERSION} (${import.meta.resolve('typedoc')}) is not supported; install typedoc 0.28.x`);
-  }
-
   // Plugins given as local files (resolved to absolute paths) are the repo's own HTML tweaks: drop them, keep packages.
   const optionOverrides: OptionsReader = {
     name: 'rn-cross-platform-docs',
@@ -33,11 +27,10 @@ export const generateTypeScript: Generator = async (library, out) => {
   const cwd = process.cwd();
   process.chdir(library.root); // TypeDoc finds its config and resolves options from the cwd
   try {
-    await rm(out, { recursive: true, force: true });
-    const app = await typedoc.Application.bootstrapWithPlugins({ out, readme: 'none' }, [
-      new typedoc.TypeDocReader(),
-      new typedoc.PackageJsonReader(),
-      new typedoc.TSConfigReader(),
+    const app = await Application.bootstrapWithPlugins({ out, readme: 'none' }, [
+      new TypeDocReader(),
+      new PackageJsonReader(),
+      new TSConfigReader(),
       optionOverrides,
     ]);
     // fails where TypeDoc's own CLI would; the logger has already printed why

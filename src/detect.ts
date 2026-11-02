@@ -59,9 +59,7 @@ const usesNitro = (root: string) => existsSync(join(root, 'nitro.json'));
 const usesCodegen = (pkg: PackageJson) => pkg.codegenConfig !== undefined;
 
 async function readPackageJson(root: string): Promise<PackageJson> {
-  const file = join(root, 'package.json');
-  if (!existsSync(file)) throw new Error(`No package.json in ${root}`);
-  return JSON.parse(await readFile(file, 'utf8')) as PackageJson;
+  return JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as PackageJson;
 }
 
 async function readExpoModuleConfig(root: string): Promise<ExpoModuleConfig> {

@@ -6,8 +6,7 @@ import { run } from './exec.ts';
 import type { Generator } from './library.ts';
 
 export const generateSwift: Generator = async (library, out) => {
-  const podName = library.podName;
-  if (!podName) throw new Error('swift generator: no podspec name detected');
+  const podName = library.podName!;
   await prepareExampleApp(library, 'ios');
   const exampleIosDir = join(library.exampleDir, 'ios');
   const workspaces = (await readdir(exampleIosDir)).filter((f) => f.endsWith('.xcworkspace'));
@@ -56,8 +55,6 @@ export async function exportArchive(archive: string, module: string, out: string
   const json = await readFile(join(archive, manifest), 'utf8');
   const { documents } = JSON.parse(json) as { documents: { identifier: string }[] };
   const files = pageFiles(documents.map((d) => d.identifier));
-  await rm(out, { recursive: true, force: true });
-  await mkdir(out, { recursive: true });
   // files only: DocC makes an empty `images/<bundle-id>/` when the repo has no catalog
   for await (const f of glob('images/**', { cwd: archive, withFileTypes: true })) {
     if (f.isFile()) await cp(join(f.parentPath, f.name), join(out, posix.relative(archive, join(f.parentPath, f.name))));
