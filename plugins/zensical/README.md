@@ -67,7 +67,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   docs:
-    uses: RasmusKard/rn-cross-platform-docs/.github/workflows/deploy-zensical.yml@main
+    uses: RasmusKard/rn-cross-platform-docs/.github/workflows/deploy-zensical.yml@v1
 ```
 
 ## Known gaps

@@ -66,7 +66,7 @@ name: API reference
 on: push
 jobs:
   reference:
-    uses: RasmusKard/rn-cross-platform-docs/.github/workflows/generate.yml@main
+    uses: RasmusKard/rn-cross-platform-docs/.github/workflows/generate.yml@v1
 ```
 
 Needs the CLI as a dev dependency ([Install](#install)).
