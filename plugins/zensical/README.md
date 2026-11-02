@@ -36,7 +36,7 @@ From the repo root, after `npx rn-cross-platform-docs generate`:
 npx rn-cross-platform-docs-zensical build
 ```
 
-| Option | Default | |
+| Option | Default | Meaning |
 |---|---|---|
 | `--reference <dir>` | `docs/reference` | The reference root, as written by `rn-cross-platform-docs generate --out` |
 | `--out <dir>` | `docs-site` | The Zensical project, replaced on each run; the built site is `<out>/site/` |

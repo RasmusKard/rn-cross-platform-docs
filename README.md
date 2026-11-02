@@ -1,6 +1,6 @@
 # rn-cross-platform-docs
 
-**A thin wrapper of ~450 lines around TypeDoc, Dokka and DocC**: write a React Native native module's API reference in
+A thin wrapper of ~450 lines around TypeDoc, Dokka and DocC: write a React Native native module's API reference in
 each platform's doc comments, and publish it as one doc site.
 
 ```
@@ -26,7 +26,7 @@ npm install --save-dev @rn-cross-platform-docs/cli typedoc@0.28.20 typedoc-plugi
 npx rn-cross-platform-docs generate
 ```
 
-| Option | Default | |
+| Option | Default | Meaning |
 |---|---|---|
 | `--out <dir>` | `docs/reference` | Output root; each platform replaces `<out>/<platform>/` |
 | `--platforms <list>` | all detected | Comma-separated subset of `typescript,kotlin,swift` |
@@ -69,7 +69,7 @@ jobs:
     uses: RasmusKard/rn-cross-platform-docs/.github/workflows/generate.yml@main
 ```
 
-- Needs the CLI as a dev dependency ([Install](#install))
+Needs the CLI as a dev dependency ([Install](#install)).
 
 ## Output
 
