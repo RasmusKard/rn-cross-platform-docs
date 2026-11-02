@@ -52,11 +52,21 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
+          # yarn and pnpm stay uncached: setup-node needs them on PATH, and corepack only enables them at install
+          cache: ${{ hashFiles(format('{0}/package-lock.json', inputs.working-directory)) != '' && 'npm' || '' }}
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/package-lock.json
+            ${{ inputs.working-directory }}/example/package-lock.json
       - if: matrix.platform == 'kotlin'
         uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: '17'
+      - if: matrix.platform == 'kotlin'
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          # the default provider is proprietary and only a free preview for private repos
+          cache-provider: basic
       - if: matrix.platform == 'swift' && inputs.xcode-version != ''
         env:
           XCODE_VERSION: ${{ inputs.xcode-version }}
