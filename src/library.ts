@@ -15,7 +15,9 @@ export interface Library {
   exampleDir: string;
   /** Platforms with sources, in `allPlatforms` order. */
   platforms: Platform[];
-  /** Gradle path of the library in the example app, e.g. `:react-native-minimal-webview`; set when `kotlin` is detected. */
+  /**
+   * Gradle path of the library in the example app, e.g. `:react-native-minimal-webview`; set when `kotlin` is detected.
+   */
   gradleProject?: string;
   /** Podspec `s.name`, which is also the Xcode scheme; set when `swift` is detected. */
   podName?: string;

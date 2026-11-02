@@ -21,22 +21,29 @@ export async function exportArchive(archive: string, module: string, out: string
   const files = pageFiles(documents.map((d) => d.identifier));
   // files only: DocC makes an empty `images/<bundle-id>/` when the repo has no catalog
   for await (const f of glob('images/**', { cwd: archive, withFileTypes: true })) {
-    if (f.isFile()) await cp(join(f.parentPath, f.name), join(out, posix.relative(archive, join(f.parentPath, f.name))));
+    if (!f.isFile()) continue;
+    const image = posix.relative(archive, join(f.parentPath, f.name));
+    await cp(join(archive, image), join(out, image));
   }
   for await (const page of glob('**/*.md', { cwd: join(archive, 'data') })) {
-    const md = await readFile(join(archive, 'data', page), 'utf8');
-    const file = files.get(`/${page.slice(0, -3)}`) ?? page;
+    const id = `/${page.slice(0, -3)}`; // the page's path without .md, as a DocC identifier
+    const file = files.get(id) ?? page;
+    let md = rewriteLinks(await readFile(join(archive, 'data', page), 'utf8'), file, files);
+    // DocC leaves `_` unescaped in titles, so ask(_:_:) would render as ask(<em>:</em>:)
+    md = md.replace(/^# .*/m, (h) => h.replace(/_/g, '\\_'));
+    md = md.replace(unlabeledCodeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
     await mkdir(dirname(join(out, file)), { recursive: true });
-    const fixed = rewriteLinks(md, file, files)
-      // DocC leaves `_` unescaped in titles, so ask(_:_:) would render as ask(<em>:</em>:)
-      .replace(/^# .*/m, (h) => h.replace(/_/g, '\\_'))
-      // DocC writes declarations in unlabeled code blocks; label them for syntax highlighting
-      .replace(/^```(.*)\n([\s\S]*?^```)$/gm, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
-    await writeFile(join(out, file), fixed);
+    await writeFile(join(out, file), md);
   }
 }
 
-/** Maps each page identifier, lowercased, to its file in the tree: `<id>/index.md` for a page with child pages, else `<id>.md`. */
+// DocC writes declarations in unlabeled code blocks; they get labeled `swift` for syntax highlighting
+const unlabeledCodeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
+
+/**
+ * Maps each page identifier, lowercased, to its file in the tree: `<id>/index.md` for a page with child pages, else
+ * `<id>.md`.
+ */
 export function pageFiles(identifiers: string[]): Map<string, string> {
   const ids = new Set(identifiers.map((i) => i.toLowerCase()));
   const parents = new Set([...ids].map((i) => i.slice(0, i.lastIndexOf('/'))));
@@ -49,18 +56,21 @@ export function pageFiles(identifiers: string[]): Map<string, string> {
 // `![alt](images/<bundle-id>/x.png)`; text may hold one level of brackets.
 const docLink = /(!?)\[((?:[^[\]]|\[[^\]]*\])*)\]\(((?:\/documentation\/|images\/)(?:[^()\s]|\([^()\s]*\))*)\)/g;
 
+// DocC leaves symbol links in callouts unresolved, as ``doc://<bundle>/documentation/...``
+const unresolvedDocLink = /``doc:\/\/[^/`]+(\/documentation\/[^`]+)``/g;
+const overloadHash = /-[0-9a-z]{4,6}$/;
+
 /**
  * Makes DocC's links in the page at tree path `page` relative to the tree: a `/documentation/...` link to an identifier
  * in `files` (from {@link pageFiles}) points at its file, one to anything else is replaced by its text, and `images/...`
  * points at the tree root's `images/`. So does an unresolved ``doc://<bundle>/documentation/...`` code span.
  */
 export function rewriteLinks(md: string, page: string, files: Map<string, string>): string {
-  // DocC leaves symbol links in callouts unresolved, as ``doc://<bundle>/documentation/...``; shown by their last path
-  // segment without the overload hash (shortcut: an operator whose name holds `/` shows only its tail)
-  md = md.replace(/``doc:\/\/[^/`]+(\/documentation\/[^`]+)``/g, (_uri, id: string) => {
-    const text = `\`${id.slice(id.lastIndexOf('/') + 1).replace(/-[0-9a-z]{4,6}$/, '')}\``;
+  md = md.replace(unresolvedDocLink, (_uri, id: string) => {
+    // shortcut: an operator whose name holds `/` shows only its tail
+    const name = id.slice(id.lastIndexOf('/') + 1).replace(overloadHash, '');
     const file = files.get(id.toLowerCase());
-    return file ? `[${text}](${relative(page, file)})` : text;
+    return file ? `[\`${name}\`](${relative(page, file)})` : `\`${name}\``;
   });
   return md.replace(docLink, (_link, bang: string, text: string, dest: string) => {
     if (bang) return `![${text}](${relative(page, dest)})`;
@@ -71,10 +81,12 @@ export function rewriteLinks(md: string, page: string, files: Map<string, string
   });
 }
 
-// `./` keeps a colon from reading as a URL scheme; encodeURI plus `?`/`#` escapes `%`, `<`, `>`, `?` (Swift operators)
-// and spaces; the angle brackets allow unbalanced parentheses, and must hold the fragment too.
 function relative(page: string, target: string, fragment?: string): string {
   const path = posix.relative(posix.dirname(page), target);
+  const prefix = path.startsWith('../') ? '' : './'; // keeps a colon from reading as a URL scheme
+  // escapes `%`, `<`, `>`, spaces and, which encodeURI leaves alone, `?` and `#` (Swift operators)
+  const escaped = encodeURI(path).replace(/[?#]/g, encodeURIComponent);
   const hash = fragment === undefined ? '' : `#${fragment.replace(/[<>]/g, encodeURIComponent)}`;
-  return `<${path.startsWith('../') ? '' : './'}${encodeURI(path).replace(/[?#]/g, encodeURIComponent)}${hash}>`;
+  // angle brackets allow unbalanced parentheses, and must hold the fragment too
+  return `<${prefix}${escaped}${hash}>`;
 }

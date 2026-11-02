@@ -12,7 +12,7 @@ const dokkaInitScript = fileURLToPath(new URL('../assets/dokka-gfm.init.gradle',
 export const generateKotlin: Generator = async (library, out) => {
   const gradleProject = library.gradleProject!;
   const libraryAndroidDir = join(library.root, 'android');
-  const buildFiles = ['build.gradle', 'build.gradle.kts'].map((f) => join(libraryAndroidDir, f)).filter((f) => existsSync(f));
+  const buildFiles = ['build.gradle', 'build.gradle.kts'].map((f) => join(libraryAndroidDir, f)).filter(existsSync);
   for (const file of buildFiles) {
     // a second Dokka from the init script would clash with the package's own
     if ((await readFile(file, 'utf8')).includes('org.jetbrains.dokka')) {
@@ -23,11 +23,13 @@ export const generateKotlin: Generator = async (library, out) => {
   const exampleAndroidDir = join(library.exampleDir, 'android');
   // Dokka doesn't depend on codegen, so without this the generated spec supertype is an unresolved ERROR CLASS
   const codegenTasks = library.usesCodegen ? [`${gradleProject}:generateCodegenArtifactsFromSchema`] : [];
-  await run(
-    join(exampleAndroidDir, 'gradlew'),
-    ['--init-script', dokkaInitScript, `-PdokkaProject=${gradleProject}`, ...codegenTasks, `${gradleProject}:dokkaGenerateMarkdown`],
-    exampleAndroidDir,
-  );
-  // Dokka's link metadata, not a page
-  await cp(join(libraryAndroidDir, 'build/dokka/markdown'), out, { recursive: true, filter: (f) => basename(f) !== 'package-list' });
+  await run(join(exampleAndroidDir, 'gradlew'), [
+    '--init-script', dokkaInitScript,
+    `-PdokkaProject=${gradleProject}`,
+    ...codegenTasks,
+    `${gradleProject}:dokkaGenerateMarkdown`,
+  ], exampleAndroidDir);
+  const dokkaOut = join(libraryAndroidDir, 'build/dokka/markdown');
+  // package-list is Dokka's link metadata, not a page
+  await cp(dokkaOut, out, { recursive: true, filter: (f) => basename(f) !== 'package-list' });
 };
