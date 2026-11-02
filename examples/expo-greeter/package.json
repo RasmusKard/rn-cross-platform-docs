@@ -28,6 +28,7 @@
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@react-native/jest-preset": "0.88.1",
+    "@rn-cross-platform-docs/cli": "file:../..",
     "@rn-cross-platform-docs/zensical": "file:../../plugins/zensical",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.3.0",
@@ -40,7 +41,6 @@
     "prettier": "^3.0.0",
     "react": "19.3.0",
     "react-native": "0.88.1",
-    "rn-cross-platform-docs": "file:../..",
     "typescript": "~6.0.3"
   },
   "jest": {

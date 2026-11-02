@@ -21,17 +21,8 @@ the repo (`repository`).
 
 ## Install
 
-The package isn't on npm, and releases don't attach tarballs yet. Until they do, build a tarball from a clone of
-[rn-cross-platform-docs](https://github.com/RasmusKard/rn-cross-platform-docs) and install it from a path inside your
-repo, committed, so `npm ci` finds it in CI:
-
 ```sh
-cd plugins/zensical
-npm ci
-npm pack
-# in your repo:
-mkdir -p vendor && cp /path/to/rn-cross-platform-docs-zensical-*.tgz vendor/
-npm install --save-dev ./vendor/rn-cross-platform-docs-zensical-*.tgz
+npm install --save-dev @rn-cross-platform-docs/zensical
 ```
 
 Zensical runs through `uvx`, pinned to one version, so it needs [uv](https://docs.astral.sh/uv/getting-started/installation/)

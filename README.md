@@ -15,12 +15,13 @@ It works on Expo modules and bare React Native libraries (Turbo or Nitro modules
 
 ## Install
 
-The package isn't on npm yet (it will be published as `rn-cross-platform-docs`), so install it from GitHub, which
-builds it on install. The tool runs your repo's own TypeDoc, so TypeDoc and the Markdown plugin are peer dependencies:
+The tool runs your repo's own TypeDoc, so TypeDoc and the Markdown plugin are peer dependencies:
 
 ```sh
-npm install --save-dev github:RasmusKard/rn-cross-platform-docs typedoc@0.28.20 typedoc-plugin-markdown@4.14.1
+npm install --save-dev @rn-cross-platform-docs/cli typedoc@0.28.20 typedoc-plugin-markdown@4.14.1
 ```
+
+It installs the `rn-cross-platform-docs` command.
 
 Each platform needs its own toolchain:
 

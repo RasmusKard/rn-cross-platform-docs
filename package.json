@@ -1,5 +1,5 @@
 {
-  "name": "rn-cross-platform-docs",
+  "name": "@rn-cross-platform-docs/cli",
   "version": "0.0.0",
   "description": "Markdown API reference for React Native native modules, one tree per platform: TypeScript, Kotlin and Swift",
   "license": "MIT",
@@ -12,6 +12,9 @@
     "dist",
     "assets"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22"
   },
