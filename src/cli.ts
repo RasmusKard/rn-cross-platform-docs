@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { detect } from './detect.ts';
+import { detectLibrary } from './detect.ts';
 import { generate } from './generate.ts';
-import { allPlatforms, type Platform } from './stack.ts';
+import { allPlatforms, type Platform } from './library.ts';
 
 const help = `Usage: rn-cross-platform-docs generate [options]
        rn-cross-platform-docs detect
@@ -47,7 +47,7 @@ if (args.values.help || args.positionals.length === 0) {
 } else if (!['generate', 'detect'].includes(args.positionals[0]) || args.positionals.length > 1) {
   usageError(`Unknown command: ${args.positionals.join(' ')}`);
 } else if (args.positionals[0] === 'detect') {
-  await detect(process.cwd()).then((stack) => process.stdout.write(`${stack.platforms.join('\n')}\n`), fail);
+  await detectLibrary(process.cwd()).then((library) => process.stdout.write(`${library.platforms.join('\n')}\n`), fail);
 } else {
   const platforms = args.values.platforms?.split(',').map((p) => p.trim()) as Platform[] | undefined;
   const unknown = platforms?.filter((p) => !allPlatforms.includes(p)) ?? [];

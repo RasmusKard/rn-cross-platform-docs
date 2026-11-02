@@ -10,7 +10,7 @@ export type NavItem = string | { [title: string]: string | NavItem[] };
  * page, or, with one package, shows that package's section in place of the root page, which only lists it.
  */
 export async function platformNav(dir: string): Promise<{ nav: NavItem[] }> {
-  const nav = await section(dir, '');
+  const nav = await sectionNav(dir, '');
   if (nav.length === 1 && typeof nav[0] !== 'string') return { nav: Object.values(nav[0])[0] as NavItem[] };
   if (nav.length !== 2 || nav[0] !== 'index.md' || typeof nav[1] === 'string') return { nav };
   // Dokka's <module>/ folder: one package's section, or a page-less section of packages
@@ -20,7 +20,7 @@ export async function platformNav(dir: string): Promise<{ nav: NavItem[] }> {
   return { nav: packages.length === 1 ? inner : ['index.md', ...inner] };
 }
 
-async function section(root: string, rel: string): Promise<NavItem[]> {
+async function sectionNav(root: string, rel: string): Promise<NavItem[]> {
   const entries = (await readdir(join(root, rel), { withFileTypes: true })).sort((a, b) =>
     a.name.localeCompare(b.name, 'en'),
   );
@@ -30,8 +30,8 @@ async function section(root: string, rel: string): Promise<NavItem[]> {
   const items: NavItem[] = [];
   for (const e of entries) {
     if (e.isDirectory()) {
-      const f = await folder(root, path(e.name), names.has(`${e.name}.md`));
-      if (f) items.push(f);
+      const folder = await folderNav(root, path(e.name), names.has(`${e.name}.md`));
+      if (folder) items.push(folder);
     } else if (e.name.endsWith('.md') && !dirs.has(e.name.slice(0, -3))) {
       // Dokka's constructors page is named, and titled, like its class: -greeting-options/-greeting-options.md
       const constructors = basename(rel).startsWith('-') && e.name === `${basename(rel)}.md`;
@@ -39,8 +39,8 @@ async function section(root: string, rel: string): Promise<NavItem[]> {
     }
   }
   // index.md first, so it becomes the section's page (navigation.indexes)
-  const i = items.indexOf(path('index.md'));
-  if (i > 0) items.unshift(...items.splice(i, 1));
+  const indexAt = items.indexOf(path('index.md'));
+  if (indexAt > 0) items.unshift(...items.splice(indexAt, 1));
   return items;
 }
 
@@ -49,16 +49,16 @@ async function section(root: string, rel: string): Promise<NavItem[]> {
  * with a member named `index`), which comes first. A folder without a page is titled by name. A folder holding only its
  * page, or only one section, is replaced by it. A folder without pages (DocC's images/) is left out.
  */
-async function folder(root: string, rel: string, hasSibling: boolean): Promise<NavItem | undefined> {
-  const children = await section(root, rel);
+async function folderNav(root: string, rel: string, hasSibling: boolean): Promise<NavItem | undefined> {
+  const children = await sectionNav(root, rel);
   if (hasSibling) children.unshift(`${rel}.md`);
   if (!children.length) return undefined;
   const page = children[0] === `${rel}.md` || children[0] === `${rel}/index.md` ? children[0] : undefined;
   if (children.length === 1 && (page || typeof children[0] !== 'string')) return children[0];
-  return { [(page && (await h1(join(root, page)))) || basename(rel)]: children };
+  return { [(page && (await readH1(join(root, page)))) || basename(rel)]: children };
 }
 
 // unescaped: rn-cross-platform-docs escapes `_` in DocC titles
-async function h1(file: string): Promise<string | undefined> {
+async function readH1(file: string): Promise<string | undefined> {
   return /^# (.+)$/m.exec(await readFile(file, 'utf8'))?.[1].trim().replace(/\\(.)/g, '$1');
 }

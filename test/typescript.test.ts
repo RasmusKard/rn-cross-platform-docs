@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
 import { test } from 'node:test';
-import type { Stack } from '../src/stack.ts';
+import type { Library } from '../src/library.ts';
 import { generateTypeScript } from '../src/typescript.ts';
 
 const root = new URL('fixtures/typescript', import.meta.url).pathname;
@@ -12,17 +12,17 @@ const root = new URL('fixtures/typescript', import.meta.url).pathname;
 void test('writes Markdown from the repo config, without local plugins or assets', async (t) => {
   const info = t.mock.method(console, 'info', () => {});
   const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
-  const stack: Stack = {
+  const library: Library = {
     root,
-    name: 'fixture',
+    packageName: 'fixture',
     kind: 'bare',
-    nitro: false,
-    codegen: false,
-    example: join(root, 'example'),
+    usesNitro: false,
+    usesCodegen: false,
+    exampleDir: join(root, 'example'),
     platforms: ['typescript'],
   };
 
-  await generateTypeScript(stack, out);
+  await generateTypeScript(library, out);
 
   assert.deepEqual(readdirSync(out).sort(), ['README.md', 'functions']);
   assert.deepEqual(readdirSync(join(out, 'functions')), ['greet.md']);
@@ -37,7 +37,7 @@ void test('falls back to src/index.tsx when the repo sets no entry points', asyn
   const root = new URL('fixtures/typescript-no-config', import.meta.url).pathname;
   const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
 
-  await generateTypeScript({ root, name: 'no-config', kind: 'bare', nitro: false, codegen: false, example: join(root, 'example'), platforms: ['typescript'] }, out);
+  await generateTypeScript({ root, packageName: 'no-config', kind: 'bare', usesNitro: false, usesCodegen: false, exampleDir: join(root, 'example'), platforms: ['typescript'] }, out);
 
   assert.deepEqual(readdirSync(join(out, 'functions')), ['hello.md']);
 });

@@ -26,13 +26,13 @@ export interface BuildOptions {
 export async function build(root: string, options: BuildOptions): Promise<void> {
   const out = await writeProject(root, options);
   const args = ['--exclude-newer', zensical.resolvedAt, `zensical@${zensical.version}`, 'build'];
-  const r = spawnSync('uvx', args, { cwd: out, stdio: 'inherit' });
-  if ((r.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
+  const result = spawnSync('uvx', args, { cwd: out, stdio: 'inherit' });
+  if ((result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
     throw new Error('`uvx` not found: uv is not on PATH; see https://docs.astral.sh/uv/getting-started/installation/');
   }
-  if (r.error) throw r.error;
-  if (r.status !== 0) {
-    throw new Error(`\`${['uvx', ...args].join(' ')}\` in ${out} failed with ${r.signal ?? `exit code ${r.status}`}`);
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`\`${['uvx', ...args].join(' ')}\` in ${out} failed with ${result.signal ?? `exit code ${result.status}`}`);
   }
 }
 
@@ -43,21 +43,21 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
-  const ref = resolve(root, reference);
-  const dir = resolve(root, out);
-  const present = platforms.filter(([p]) => existsSync(join(ref, p)));
-  if (!present.length) {
-    throw new Error(`no typescript/, kotlin/ or swift/ in ${ref}; run \`rn-cross-platform-docs generate\` first`);
+  const referenceDir = resolve(root, reference);
+  const projectDir = resolve(root, out);
+  const presentPlatforms = platforms.filter(([p]) => existsSync(join(referenceDir, p)));
+  if (!presentPlatforms.length) {
+    throw new Error(`no typescript/, kotlin/ or swift/ in ${referenceDir}; run \`rn-cross-platform-docs generate\` first`);
   }
   if (!existsSync(join(root, 'README.md'))) throw new Error(`no README.md in ${root}; it is the site's home page`);
-  const toml = join(dir, 'zensical.toml');
-  const ours = existsSync(toml) && (await readFile(toml, 'utf8')).startsWith(marker);
-  if (!ours && existsSync(dir) && (await readdir(dir)).length) {
-    throw new Error(`${dir} exists and wasn't written by this tool; pick another --out`);
+  const toml = join(projectDir, 'zensical.toml');
+  const writtenByUs = existsSync(toml) && (await readFile(toml, 'utf8')).startsWith(marker);
+  if (!writtenByUs && existsSync(projectDir) && (await readdir(projectDir)).length) {
+    throw new Error(`${projectDir} exists and wasn't written by this tool; pick another --out`);
   }
-  if (!relative(dir, ref).startsWith('..')) throw new Error(`--reference must be outside --out`);
+  if (!relative(projectDir, referenceDir).startsWith('..')) throw new Error(`--reference must be outside --out`);
 
-  const docs = join(dir, 'docs');
+  const docs = join(projectDir, 'docs');
   await rm(docs, { recursive: true, force: true });
   await mkdir(docs, { recursive: true });
   const nav: NavItem[] = [];
@@ -67,24 +67,24 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   if (existsSync(join(root, 'guides'))) {
     await cp(join(root, 'guides'), join(docs, 'guides'), { recursive: true });
     nav.push({ Guides: 'guides' });
-    const guides = join(docs, 'guides/.nav.yml');
-    if (!existsSync(guides)) await writeFile(guides, JSON.stringify(await guidesNav(root, docs)));
+    const guidesNavFile = join(docs, 'guides/.nav.yml');
+    if (!existsSync(guidesNavFile)) await writeFile(guidesNavFile, JSON.stringify(await guidesNav(root, docs)));
   }
-  for (const [p, title] of present) {
-    await cp(join(ref, p), join(docs, p), { recursive: true });
+  for (const [p, title] of presentPlatforms) {
+    await cp(join(referenceDir, p), join(docs, p), { recursive: true });
     await tidyPages(join(docs, p));
     nav.push({ [title]: p });
     // TypeScript keeps TypeDoc's folders, minus `_media/` and `documents/` (the guides, already under Guides)
-    const platformFile = p === 'typescript' ? { ignore: ['_*', 'documents'] } : await platformNav(join(docs, p));
-    await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(platformFile));
+    const platformNavFile = p === 'typescript' ? { ignore: ['_*', 'documents'] } : await platformNav(join(docs, p));
+    await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(platformNavFile));
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
   // the theme sets h5 in capitals, which TypeDoc uses for parameter names
   await writeFile(join(docs, 'extra.css'), '.md-typeset h5 { text-transform: none; }\n');
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
-  await writeFile(toml, config(pkg, siteUrl));
-  return dir;
+  await writeFile(toml, zensicalToml(pkg, siteUrl));
+  return projectDir;
 }
 
 // TypeDoc's page header and breadcrumbs, Dokka's `//[lib]/[package]/...` breadcrumb and DocC's metadata comment come
@@ -125,15 +125,15 @@ const shorthandHosts: Record<string, string> = { github: 'github.com', gitlab: '
 
 /** The web URL of a package.json `repository`, or undefined for a form it doesn't recognize. */
 export function repoUrl(repository: Package['repository']): string | undefined {
-  const r = typeof repository === 'string' ? repository : repository?.url;
-  if (!r) return undefined;
-  const url = /^(?:git\+)?(?:https?|ssh|git):\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?[/:](.+?)(?:\.git)?\/?$/.exec(r);
+  const spec = typeof repository === 'string' ? repository : repository?.url;
+  if (!spec) return undefined;
+  const url = /^(?:git\+)?(?:https?|ssh|git):\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?[/:](.+?)(?:\.git)?\/?$/.exec(spec);
   if (url) return `https://${url[1]}/${url[2]}`;
-  const short = /^(?:(github|gitlab|bitbucket):)?([\w.-]+\/[\w.-]+)$/.exec(r);
+  const short = /^(?:(github|gitlab|bitbucket):)?([\w.-]+\/[\w.-]+)$/.exec(spec);
   return short ? `https://${shorthandHosts[short[1] ?? 'github']}/${short[2]}` : undefined;
 }
 
-function config({ name, description, repository }: Package, siteUrl?: string): string {
+function zensicalToml({ name, description, repository }: Package, siteUrl?: string): string {
   const repo = repoUrl(repository);
   const project = [
     `site_name = ${JSON.stringify(name)}`,

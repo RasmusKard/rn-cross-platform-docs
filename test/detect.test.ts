@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { detect } from '../src/detect.ts';
+import { detectLibrary } from '../src/detect.ts';
 import { repo } from './repo.ts';
 
 const fixture = (name: string) => new URL(`fixtures/${name}`, import.meta.url).pathname;
 
 await test('an Expo module with all three platforms', async () => {
   const root = fixture('expo-all');
-  assert.deepEqual(await detect(root), {
+  assert.deepEqual(await detectLibrary(root), {
     root,
-    name: '@acme/expo-probe',
+    packageName: '@acme/expo-probe',
     kind: 'expo',
-    nitro: false,
-    codegen: false,
-    example: join(root, 'example'),
+    usesNitro: false,
+    usesCodegen: false,
+    exampleDir: join(root, 'example'),
     platforms: ['typescript', 'kotlin', 'swift'],
     gradleProject: ':acme-expo-probe',
     podName: 'ExpoProbe',
@@ -23,13 +23,13 @@ await test('an Expo module with all three platforms', async () => {
 
 await test('an Expo module whose config lists only android and names its Gradle project has no swift', async () => {
   const root = fixture('expo-android');
-  assert.deepEqual(await detect(root), {
+  assert.deepEqual(await detectLibrary(root), {
     root,
-    name: 'expo-android-probe',
+    packageName: 'expo-android-probe',
     kind: 'expo',
-    nitro: false,
-    codegen: false,
-    example: join(root, 'example'),
+    usesNitro: false,
+    usesCodegen: false,
+    exampleDir: join(root, 'example'),
     platforms: ['typescript', 'kotlin'],
     gradleProject: ':android-probe',
   });
@@ -37,13 +37,13 @@ await test('an Expo module whose config lists only android and names its Gradle 
 
 await test('a bare Nitro library with committed example projects', async () => {
   const root = fixture('bare-nitro');
-  assert.deepEqual(await detect(root), {
+  assert.deepEqual(await detectLibrary(root), {
     root,
-    name: 'react-native-bare-probe',
+    packageName: 'react-native-bare-probe',
     kind: 'bare',
-    nitro: true,
-    codegen: false,
-    example: join(root, 'example'),
+    usesNitro: true,
+    usesCodegen: false,
+    exampleDir: join(root, 'example'),
     platforms: ['typescript', 'kotlin', 'swift'],
     gradleProject: ':react-native-bare-probe',
     podName: 'BareProbe',
@@ -51,18 +51,18 @@ await test('a bare Nitro library with committed example projects', async () => {
 });
 
 await test('a repo with no native module throws, naming what was looked for', async () => {
-  await assert.rejects(detect(fixture('none')), /No React Native native module .*expo-module\.config\.json.*example\/ios\/Podfile/);
+  await assert.rejects(detectLibrary(fixture('none')), /No React Native native module .*expo-module\.config\.json.*example\/ios\/Podfile/);
 });
 
 await test('a bare Turbo module with codegenConfig and no Swift', async () => {
   const root = fixture('bare-turbo');
-  assert.deepEqual(await detect(root), {
+  assert.deepEqual(await detectLibrary(root), {
     root,
-    name: 'react-native-turbo-probe',
+    packageName: 'react-native-turbo-probe',
     kind: 'bare',
-    nitro: false,
-    codegen: true,
-    example: join(root, 'example'),
+    usesNitro: false,
+    usesCodegen: true,
+    exampleDir: join(root, 'example'),
     platforms: ['typescript', 'kotlin'],
     gradleProject: ':react-native-turbo-probe',
   });
@@ -76,10 +76,10 @@ await test('a bare library with a Kotlin settings script and a computed podspec 
     'ios/BunProbe.podspec': 'Pod::Spec.new do |s|\n  s.name = package["name"].delete_prefix("react-native-")\nend\n',
     'ios/BunProbe.swift': '',
   });
-  const stack = await detect(root);
-  assert.equal(stack.kind, 'bare');
-  assert.deepEqual(stack.platforms, ['typescript', 'kotlin', 'swift']);
-  assert.equal(stack.podName, 'BunProbe', 'the podspec file name stands in for a computed s.name');
+  const library = await detectLibrary(root);
+  assert.equal(library.kind, 'bare');
+  assert.deepEqual(library.platforms, ['typescript', 'kotlin', 'swift']);
+  assert.equal(library.podName, 'BunProbe', 'the podspec file name stands in for a computed s.name');
 });
 
 await test('sources under build/ are not detected', async (t) => {
@@ -90,5 +90,5 @@ await test('sources under build/ are not detected', async (t) => {
     'ios/BuildProbe.podspec': '',
     'ios/build/Generated.swift': '',
   });
-  assert.deepEqual((await detect(root)).platforms, ['typescript']);
+  assert.deepEqual((await detectLibrary(root)).platforms, ['typescript']);
 });

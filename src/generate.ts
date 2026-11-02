@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { detect } from './detect.ts';
+import { detectLibrary } from './detect.ts';
 import { generateKotlin } from './kotlin.ts';
-import type { Generator, Platform } from './stack.ts';
+import type { Generator, Platform } from './library.ts';
 import { generateSwift } from './swift.ts';
 import { generateTypeScript } from './typescript.ts';
 
@@ -20,20 +20,20 @@ export interface GenerateOptions {
 }
 
 export async function generate(root: string, { out, platforms }: GenerateOptions): Promise<void> {
-  const stack = await detect(root);
-  const missing = platforms?.filter((p) => !stack.platforms.includes(p)) ?? [];
-  if (missing.length) throw new Error(`No ${missing.join(', ')} sources detected in ${stack.root}`);
-  for (const p of platforms ?? stack.platforms) {
-    const dest = resolve(stack.root, out, p);
+  const library = await detectLibrary(root);
+  const missing = platforms?.filter((p) => !library.platforms.includes(p)) ?? [];
+  if (missing.length) throw new Error(`No ${missing.join(', ')} sources detected in ${library.root}`);
+  for (const platform of platforms ?? library.platforms) {
+    const dest = resolve(library.root, out, platform);
     await mkdir(dirname(dest), { recursive: true });
     // a failing generator leaves the previous tree in place
-    const tmp = await mkdtemp(join(dirname(dest), `.${p}-`));
+    const staging = await mkdtemp(join(dirname(dest), `.${platform}-`));
     try {
-      await generators[p](stack, tmp);
+      await generators[platform](library, staging);
       await rm(dest, { recursive: true, force: true });
-      await rename(tmp, dest);
+      await rename(staging, dest);
     } finally {
-      await rm(tmp, { recursive: true, force: true });
+      await rm(staging, { recursive: true, force: true });
     }
   }
 }
