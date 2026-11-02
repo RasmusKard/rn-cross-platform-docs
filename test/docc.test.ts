@@ -27,7 +27,10 @@ It is a \`BaseModule\`.
 
 ![A probe](<../../images/org.cocoapods.Fixture/probe.png>)`,
   );
-  assert.match(await readFile(join(out, 'documentation/fixture/thing/index.md'), 'utf8'), /\(<\.\/%3F%3F\(_:_:\)\.md>\)/);
+  assert.match(
+    await readFile(join(out, 'documentation/fixture/thing/index.md'), 'utf8'),
+    /\(<\.\/%3F%3F\(_:_:\)\.md>\)/,
+  );
   assert.match(await readFile(join(out, 'documentation/fixture/thing/run(_:)-8uxly.md'), 'utf8'), /^# run\(\\_:\)$/m);
   assert.match(
     await readFile(join(out, 'documentation/fixture/guide.md'), 'utf8'),
@@ -50,7 +53,12 @@ void test('findArchive returns the one .doccarchive in a directory and rejects a
 });
 
 void test('rewriteLinks encodes operator characters, keeps fragments, allows brackets in the link text and resolves doc:// spans', () => {
-  const pages = pageFiles(['/documentation/M/T', '/documentation/M/T/<(_:_:)', '/documentation/M/T/%(_:_:)', '/documentation/M/T/subscript(_:)']);
+  const pages = pageFiles([
+    '/documentation/M/T',
+    '/documentation/M/T/<(_:_:)',
+    '/documentation/M/T/%(_:_:)',
+    '/documentation/M/T/subscript(_:)',
+  ]);
   const md = [
     '[`<(_:_:)`](/documentation/M/T/<(_:_:))',
     '[`%(_:_:)`](/documentation/M/T/%(_:_:))',
@@ -74,7 +82,13 @@ void test('rewriteLinks encodes operator characters, keeps fragments, allows bra
 
 void test('pageFiles puts a page with child pages at <id>/index.md, unless it has a member named index', () => {
   assert.deepEqual(
-    pageFiles(['/documentation/M', '/documentation/M/T', '/documentation/M/T/f()', '/documentation/M/U', '/documentation/M/U/index']),
+    pageFiles([
+      '/documentation/M',
+      '/documentation/M/T',
+      '/documentation/M/T/f()',
+      '/documentation/M/U',
+      '/documentation/M/U/index',
+    ]),
     new Map([
       ['/documentation/m', 'documentation/m/index.md'],
       ['/documentation/m/t', 'documentation/m/t/index.md'],

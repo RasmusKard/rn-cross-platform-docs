@@ -36,7 +36,18 @@ void test('falls back to src/index.tsx and no readme when the repo sets neither'
   const root = new URL('fixtures/typescript-no-config', import.meta.url).pathname;
   const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
 
-  await generateTypeScript({ root, packageName: 'no-config', kind: 'bare', usesNitro: false, usesCodegen: false, exampleDir: join(root, 'example'), platforms: ['typescript'] }, out);
+  await generateTypeScript(
+    {
+      root,
+      packageName: 'no-config',
+      kind: 'bare',
+      usesNitro: false,
+      usesCodegen: false,
+      exampleDir: join(root, 'example'),
+      platforms: ['typescript'],
+    },
+    out,
+  );
 
   assert.deepEqual(readdirSync(join(out, 'functions')), ['hello.md']);
   assert.doesNotMatch(readFileSync(join(out, 'README.md'), 'utf8'), /No-config readme/);

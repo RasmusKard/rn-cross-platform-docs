@@ -23,6 +23,7 @@ export const generateSwift: Generator = async (library, out) => {
   }
   const derivedDataDir = await mkdtemp(join(tmpdir(), 'rn-cross-platform-docs-dd-'));
   try {
+    // oxfmt-ignore
     await run('xcodebuild', [
       'docbuild',
       '-workspace', workspaces[0],

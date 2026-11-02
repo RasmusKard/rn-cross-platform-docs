@@ -55,7 +55,9 @@ await test('Kotlin: a page-only package among several keeps the root page', asyn
     'lib/b/index.md': '# b',
     'lib/b/-t/index.md': '# T',
   });
-  assert.deepEqual(await platformNav(dir), { nav: ['index.md', 'lib/a/index.md', { b: ['lib/b/index.md', 'lib/b/-t/index.md'] }] });
+  assert.deepEqual(await platformNav(dir), {
+    nav: ['index.md', 'lib/a/index.md', { b: ['lib/b/index.md', 'lib/b/-t/index.md'] }],
+  });
 });
 
 await test('Kotlin: one package replaces the root page that lists it', async () => {
@@ -107,16 +109,23 @@ await test('Swift: a type with a member named index keeps its page as the siblin
     'documentation/m/t/f().md': '# f()',
   });
   assert.deepEqual(await platformNav(dir), {
-    nav: ['documentation/m/index.md', { T: ['documentation/m/t.md', 'documentation/m/t/index.md', 'documentation/m/t/f().md'] }],
+    nav: [
+      'documentation/m/index.md',
+      { T: ['documentation/m/t.md', 'documentation/m/t/index.md', 'documentation/m/t/f().md'] },
+    ],
   });
 });
 
 await test('a page is kept next to a file of its name without .md', async () => {
-  assert.deepEqual(await platformNav(tree({ 'foo': '', 'foo.md': '# Foo' })), { nav: ['foo.md'] });
+  assert.deepEqual(await platformNav(tree({ foo: '', 'foo.md': '# Foo' })), { nav: ['foo.md'] });
 });
 
 await test('a section whose page has no heading is titled by its folder name', async () => {
-  const dir = tree({ 'lib/-web-view/index.md': 'No heading', 'lib/-web-view/load.md': '# load', 'other.md': '# Other' });
+  const dir = tree({
+    'lib/-web-view/index.md': 'No heading',
+    'lib/-web-view/load.md': '# load',
+    'other.md': '# Other',
+  });
   assert.deepEqual(await platformNav(dir), {
     nav: [{ '-web-view': ['lib/-web-view/index.md', 'lib/-web-view/load.md'] }, 'other.md'],
   });

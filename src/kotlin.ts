@@ -23,6 +23,7 @@ export const generateKotlin: Generator = async (library, out) => {
   const exampleAndroidDir = join(library.exampleDir, 'android');
   // Dokka doesn't depend on codegen, so without this the generated spec supertype is an unresolved ERROR CLASS
   const codegenTasks = library.usesCodegen ? [`${gradleProject}:generateCodegenArtifactsFromSchema`] : [];
+  // oxfmt-ignore
   await run(join(exampleAndroidDir, 'gradlew'), [
     '--init-script', dokkaInitScript,
     `-PdokkaProject=${gradleProject}`,
