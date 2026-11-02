@@ -1,0 +1,27 @@
+# Publishes examples/expo-greeter's site to this repo's GitHub Pages, as the example of what the tools produce.
+name: Example site
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # weekly, so an Xcode, Dokka or Zensical change that breaks the tools shows up between pushes
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  site:
+    uses: ./.github/workflows/deploy-zensical.yml
+    with:
+      working-directory: examples/expo-greeter
+      # the example links the CLI and plugin from this checkout, so build those first
+      install: (cd ../.. && npm ci) && (cd ../../plugins/zensical && npm ci) && npm ci && (cd example && npm ci)
