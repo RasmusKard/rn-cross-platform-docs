@@ -21,6 +21,9 @@ on:
       macos-runner:
         type: string
         default: xcode-27
+      working-directory:
+        type: string
+        default: .
 
 jobs:
   reference:
@@ -33,6 +36,7 @@ jobs:
       node-version: ${{ inputs.node-version }}
       xcode-version: ${{ inputs.xcode-version }}
       macos-runner: ${{ inputs.macos-runner }}
+      working-directory: ${{ inputs.working-directory }}
       artifact-name: api-reference
 
   build:
@@ -41,6 +45,9 @@ jobs:
     permissions:
       contents: read
       pages: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
