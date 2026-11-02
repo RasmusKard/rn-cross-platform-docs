@@ -58,11 +58,11 @@ Builds the library inside the example app, in place, since Dokka and DocC need i
 | Expo prebuild | `npx expo prebuild --platform <android\|ios> --no-install` in `example/` |
 | Kotlin | React Native codegen (with `codegenConfig`), then Dokka through an init script, in `example/android` |
 | Swift | `pod install`, then `xcodebuild docbuild`, in `example/ios` |
-| TypeScript | TypeDoc on the repo's config, or on `src/index.ts(x)` when it sets no `entryPoints` |
+| TypeScript | TypeDoc on the repo's own config, with Markdown output added |
 
 - The library's build files stay untouched; a library that already applies Dokka is rejected
 - Bare libraries: `pod install` rewrites the example app's committed Xcode project
-- TypeDoc plugins given as local files are dropped (usually HTML theme tweaks)
+- TypeDoc defaults, where the repo's config sets neither: `readme: "none"`, entry point `src/index.ts(x)`
 
 ## GitHub Actions
 
