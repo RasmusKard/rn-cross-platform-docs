@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { generateKotlin } from '../src/kotlin.ts';
-import type { Stack } from '../src/stack.ts';
+import type { Library } from '../src/library.ts';
 
 const root = new URL('fixtures/existing-dokka', import.meta.url).pathname;
 
 void test('a package that already applies Dokka is rejected before any build', async () => {
-  const stack: Stack = {
+  const library: Library = {
     root,
-    name: 'existing-dokka',
+    packageName: 'existing-dokka',
     kind: 'bare',
-    nitro: false,
-    codegen: false,
-    example: `${root}/example`,
+    usesNitro: false,
+    usesCodegen: false,
+    exampleDir: `${root}/example`,
     platforms: ['kotlin'],
     gradleProject: ':existing-dokka',
   };
-  await assert.rejects(generateKotlin(stack, `${root}/out`), /android\/build\.gradle\.kts already applies Dokka/);
+  await assert.rejects(generateKotlin(library, `${root}/out`), /android\/build\.gradle\.kts already applies Dokka/);
 });

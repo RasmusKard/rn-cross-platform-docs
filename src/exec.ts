@@ -5,10 +5,10 @@ export function run(cmd: string, args: string[], cwd: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, stdio: 'inherit' });
     child.on('error', reject);
-    child.on('close', (code, signal) =>
-      code === 0
-        ? resolve()
-        : reject(new Error(`\`${[cmd, ...args].join(' ')}\` in ${cwd} failed with ${signal ?? `exit code ${code}`}`)),
-    );
+    child.on('close', (code, signal) => {
+      if (code === 0) return resolve();
+      const command = [cmd, ...args].join(' ');
+      reject(new Error(`\`${command}\` in ${cwd} failed with ${signal ?? `exit code ${code}`}`));
+    });
   });
 }

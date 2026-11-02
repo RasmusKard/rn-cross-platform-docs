@@ -1,65 +1,63 @@
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import type { OptionsReader } from 'typedoc';
-import type { Generator } from './stack.ts';
+import { Application, PackageJsonReader, TSConfigReader, TypeDocReader, type OptionsReader } from 'typedoc';
+import type { Generator } from './library.ts';
 
 /** Runs TypeDoc with typedoc-plugin-markdown on the repo's own TypeDoc config. */
-export const generateTypeScript: Generator = async (stack, out) => {
-  // loaded here so the other generators work without TypeDoc installed
-  const td = await import('typedoc');
-  if (!td.Application.VERSION.startsWith('0.28.')) {
-    throw new Error(`TypeDoc ${td.Application.VERSION} (${import.meta.resolve('typedoc')}) is not supported; install typedoc 0.28.x`);
-  }
-
-  // Plugins given as local files (resolved to absolute paths) are the repo's own HTML tweaks: drop them, keep packages.
-  const plugins: OptionsReader = {
-    name: 'rn-cross-platform-docs',
-    order: 300, // after the config file and tsconfig readers
-    supportsPackages: false,
-    read(options, logger) {
-      const repo = options.getValue('plugin').filter((p) => p !== 'typedoc-plugin-markdown');
-      const local = repo.filter((p) => typeof p === 'string' && isAbsolute(p));
-      for (const p of local) logger.info(`Dropping local TypeDoc plugin ${p}`);
-      options.setValue('plugin', [...repo.filter((p) => !local.includes(p)), 'typedoc-plugin-markdown']);
-      // TypeDoc's own fallback reads package.json exports, which point at unbuilt output in RN library scaffolds
-      const entry = ['src/index.ts', 'src/index.tsx'].find((f) => existsSync(join(stack.root, f)));
-      if (options.getValue('entryPoints').length === 0 && entry) options.setValue('entryPoints', [entry]);
-      // output shortcuts (`html`, `json`, `markdown`) would each write another output at the config's path, in the repo
-      for (const d of options.getDeclarations()) if ('outputShortcut' in d && d.outputShortcut) options.reset(d.name);
-    },
-  };
-
+export const generateTypeScript: Generator = async (library, out) => {
   const cwd = process.cwd();
-  process.chdir(stack.root); // TypeDoc finds its config and resolves options from the cwd
+  process.chdir(library.root); // TypeDoc finds its config and resolves options from the cwd
   try {
-    await rm(out, { recursive: true, force: true });
-    const app = await td.Application.bootstrapWithPlugins({ out, readme: 'none' }, [
-      new td.TypeDocReader(),
-      new td.PackageJsonReader(),
-      new td.TSConfigReader(),
-      plugins,
+    const app = await Application.bootstrapWithPlugins({ out, readme: 'none' }, [
+      new TypeDocReader(),
+      new PackageJsonReader(),
+      new TSConfigReader(),
+      optionOverrides(library.root),
     ]);
-    // fails where TypeDoc's own CLI would; the logger has already printed why
-    const check = (ok = true) => {
-      const strict = app.options.getValue('treatWarningsAsErrors');
-      if (!ok || app.logger.hasErrors() || (strict && app.logger.hasWarnings())) {
-        throw new Error(`TypeDoc failed in ${stack.root}`);
-      }
-    };
-    check();
+    const failed = () => new Error(`TypeDoc failed in ${library.root}`);
+    throwIfLogged(app, failed);
     const project = await app.convert();
-    if (!project) return check(false);
-    check();
-    const warnings = app.logger.warningCount;
+    if (!project) throw failed();
+    throwIfLogged(app, failed);
+    const warningsBefore = app.logger.warningCount;
     app.validate(project);
-    const validationWarnings = app.logger.warningCount !== warnings || app.logger.validationWarningCount !== 0;
-    check(!app.options.getValue('treatValidationWarningsAsErrors') || !validationWarnings);
+    const newWarnings = app.logger.warningCount !== warningsBefore || app.logger.validationWarningCount !== 0;
+    if (newWarnings && app.options.getValue('treatValidationWarningsAsErrors')) throw failed();
+    throwIfLogged(app, failed);
     await app.generateOutputs(project);
-    check();
+    throwIfLogged(app, failed);
     // only holds the HTML theme's customCss, which TypeDoc copies for any output
     await rm(join(out, 'assets'), { recursive: true, force: true });
   } finally {
     process.chdir(cwd);
   }
 };
+
+function optionOverrides(root: string): OptionsReader {
+  return {
+    name: 'rn-cross-platform-docs',
+    order: 300, // after the config file and tsconfig readers
+    supportsPackages: false,
+    read(options, logger) {
+      // plugins given as local files (resolved to absolute paths) are the repo's own HTML tweaks; packages stay
+      const isLocalFile = (p: unknown) => typeof p === 'string' && isAbsolute(p);
+      const plugins = options.getValue('plugin').filter((p) => p !== 'typedoc-plugin-markdown');
+      for (const p of plugins.filter(isLocalFile)) logger.info(`Dropping local TypeDoc plugin ${p}`);
+      options.setValue('plugin', [...plugins.filter((p) => !isLocalFile(p)), 'typedoc-plugin-markdown']);
+
+      // TypeDoc's own fallback reads package.json exports, which point at unbuilt output in RN library scaffolds
+      const defaultEntry = ['src/index.ts', 'src/index.tsx'].find((f) => existsSync(join(root, f)));
+      if (options.getValue('entryPoints').length === 0 && defaultEntry) options.setValue('entryPoints', [defaultEntry]);
+
+      // output shortcuts (`html`, `json`, `markdown`) would each write another output at the config's path, in the repo
+      for (const d of options.getDeclarations()) if ('outputShortcut' in d && d.outputShortcut) options.reset(d.name);
+    },
+  };
+}
+
+// fails where TypeDoc's own CLI would; the logger has already printed why
+function throwIfLogged(app: Application, failed: () => Error) {
+  const strict = app.options.getValue('treatWarningsAsErrors');
+  if (app.logger.hasErrors() || (strict && app.logger.hasWarnings())) throw failed();
+}
