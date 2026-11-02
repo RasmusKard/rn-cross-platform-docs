@@ -53,9 +53,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
-      - uses: astral-sh/setup-uv@v10.3.0
-        with:
-          version: 0.13.5
+          # yarn and pnpm stay uncached: setup-node needs them on PATH, and corepack only enables them at install
+          cache: ${{ hashFiles(format('{0}/package-lock.json', inputs.working-directory)) != '' && 'npm' || '' }}
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
       - name: Install dependencies
         env:
           INSTALL: ${{ inputs.install }}
@@ -65,6 +65,11 @@ jobs:
           elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
           else npm ci
           fi
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: 0.13.5
+          # the plugin pins Zensical, so its version decides when the uv cache is stale
+          cache-dependency-glob: ${{ inputs.working-directory }}/node_modules/@rn-cross-platform-docs/zensical/package.json
       - uses: actions/download-artifact@v8
         with:
           pattern: api-reference-*
