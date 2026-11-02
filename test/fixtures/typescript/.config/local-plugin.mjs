@@ -1,3 +1,3 @@
-export function load() {
-  throw new Error('the local plugin must be dropped');
+export function load(app) {
+  app.logger.info('local plugin loaded');
 }

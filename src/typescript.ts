@@ -1,19 +1,18 @@
 import { existsSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
 import { Application, PackageJsonReader, TSConfigReader, TypeDocReader, type OptionsReader } from 'typedoc';
 import type { Generator } from './library.ts';
 
-/** Runs TypeDoc with typedoc-plugin-markdown on the repo's own TypeDoc config. */
+/** Runs TypeDoc on the repo's own config, with typedoc-plugin-markdown added and the output at `out`. */
 export const generateTypeScript: Generator = async (library, out) => {
   const cwd = process.cwd();
   process.chdir(library.root); // TypeDoc finds its config and resolves options from the cwd
   try {
-    const app = await Application.bootstrapWithPlugins({ out, readme: 'none' }, [
+    const app = await Application.bootstrapWithPlugins({ out }, [
       new TypeDocReader(),
       new PackageJsonReader(),
       new TSConfigReader(),
-      optionOverrides(library.root),
+      markdownDefaults(library.root),
     ]);
     const failed = () => new Error(`TypeDoc failed in ${library.root}`);
     throwIfLogged(app, failed);
@@ -27,31 +26,27 @@ export const generateTypeScript: Generator = async (library, out) => {
     throwIfLogged(app, failed);
     await app.generateOutputs(project);
     throwIfLogged(app, failed);
-    // only holds the HTML theme's customCss, which TypeDoc copies for any output
-    await rm(join(out, 'assets'), { recursive: true, force: true });
   } finally {
     process.chdir(cwd);
   }
 };
 
-function optionOverrides(root: string): OptionsReader {
+// runs after the repo's config, so everything but the Markdown plugin applies only where the config is silent
+function markdownDefaults(root: string): OptionsReader {
   return {
     name: 'rn-cross-platform-docs',
     order: 300, // after the config file and tsconfig readers
     supportsPackages: false,
-    read(options, logger) {
-      // plugins given as local files (resolved to absolute paths) are the repo's own HTML tweaks; packages stay
-      const isLocalFile = (p: unknown) => typeof p === 'string' && isAbsolute(p);
-      const plugins = options.getValue('plugin').filter((p) => p !== 'typedoc-plugin-markdown');
-      for (const p of plugins.filter(isLocalFile)) logger.info(`Dropping local TypeDoc plugin ${p}`);
-      options.setValue('plugin', [...plugins.filter((p) => !isLocalFile(p)), 'typedoc-plugin-markdown']);
+    read(options) {
+      const plugins = options.getValue('plugin');
+      if (!plugins.some((p) => p === 'typedoc-plugin-markdown'))
+        options.setValue('plugin', [...plugins, 'typedoc-plugin-markdown']);
+
+      if (!options.isSet('readme')) options.setValue('readme', 'none');
 
       // TypeDoc's own fallback reads package.json exports, which point at unbuilt output in RN library scaffolds
       const defaultEntry = ['src/index.ts', 'src/index.tsx'].find((f) => existsSync(join(root, f)));
-      if (options.getValue('entryPoints').length === 0 && defaultEntry) options.setValue('entryPoints', [defaultEntry]);
-
-      // output shortcuts (`html`, `json`, `markdown`) would each write another output at the config's path, in the repo
-      for (const d of options.getDeclarations()) if ('outputShortcut' in d && d.outputShortcut) options.reset(d.name);
+      if (!options.isSet('entryPoints') && defaultEntry) options.setValue('entryPoints', [defaultEntry]);
     },
   };
 }
