@@ -20,8 +20,6 @@ docs/reference/
 npm install --save-dev @rn-cross-platform-docs/cli typedoc@0.28.20 typedoc-plugin-markdown@4.14.1
 ```
 
-Requires Node 22 or later.
-
 ## Generate
 
 ```sh
@@ -35,7 +33,6 @@ npx rn-cross-platform-docs generate
 
 - `npx rn-cross-platform-docs detect`: prints the detected platforms
 - Platforms run in order; the first failure stops the run and keeps that platform's previous tree
-- Exit codes: 1 on failure, 2 on a usage error
 
 ### Detection
 
@@ -73,7 +70,6 @@ jobs:
 ```
 
 - Needs the CLI as a dev dependency ([Install](#install))
-- Inputs: see [generate.yml](.github/workflows/generate.yml)
 
 ## Output
 

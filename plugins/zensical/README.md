@@ -8,14 +8,14 @@ Builds a [Zensical](https://zensical.org) docs site for a React Native native mo
 - the Markdown API reference made by [rn-cross-platform-docs](../../README.md)
   (`typescript/`, `kotlin/`, `swift/`)
 
-There is no config to write. The tool generates `zensical.toml` and a nav with one section per platform, and copies
+The tool generates `zensical.toml` and a nav with one section per platform, and copies
 the reference pages, dropping what precedes each page's title: TypeDoc's page header and breadcrumbs and Dokka's
 breadcrumb, which the site's own breadcrumbs replace, and DocC's metadata comment. Kotlin package pages are titled by
 package name, not Dokka's "Package-level declarations". Kotlin and Swift get each type in its own section, and a
 library with one Kotlin package opens the Kotlin tab on it; TypeScript keeps TypeDoc's folders (`interfaces/`,
 `functions/`, ...).
 
-The site has a header tab per platform, a light/dark toggle that follows the OS setting by default, and breadcrumbs. The
+The site has a header tab per platform, and a light/dark toggle that follows the OS setting by default. The
 library's `package.json` supplies the site name (`name`), the meta description (`description`) and the header link to
 the repo (`repository`).
 
