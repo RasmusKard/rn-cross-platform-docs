@@ -20,8 +20,6 @@ docs/reference/
 npm install --save-dev @rn-cross-platform-docs/cli typedoc@0.28.20 typedoc-plugin-markdown@4.14.1
 ```
 
-TypeDoc and its Markdown plugin are peer dependencies: the tool runs your repo's own.
-
 Requirements:
 
 - Node 22 or later
@@ -29,8 +27,6 @@ Requirements:
 - Swift: macOS, Xcode 27.2, CocoaPods
 
 ## Generate
-
-From the repo root, with the repo's and the example app's dependencies installed:
 
 ```sh
 npx rn-cross-platform-docs generate
