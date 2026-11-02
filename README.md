@@ -1,7 +1,7 @@
 # rn-cross-platform-docs
 
-A thin wrapper of ~450 lines around TypeDoc, Dokka and DocC that writes a React Native native module's API reference
-as Markdown, one tree per platform, with plugins that turn it into a doc site.
+**A thin wrapper of ~450 lines around TypeDoc, Dokka and DocC**: write a React Native native module's API reference in
+each platform's doc comments, and publish it as one doc site.
 
 ```
 docs/reference/
