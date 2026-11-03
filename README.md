@@ -71,6 +71,9 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
   from your TypeDoc config.
 - Swift file names contain `:` and `!`, so Windows can't check out a committed Swift tree.
+- DocC in Xcode 27 (Swift 6.4) writes no Topics in its Markdown, so the Swift landing page and type pages don't list
+  their members; the Zensical site's sidebar still does.
+  [swift-docc#1625](https://github.com/swiftlang/swift-docc/pull/1625) fixes it in a later release.
 - Kotlin pages list only the members a class declares or overrides. Inherited ones, from Android and React Native base
   classes too, would otherwise fill the page with links to anchors Dokka's Markdown doesn't write.
 
