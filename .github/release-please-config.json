@@ -6,7 +6,6 @@
   "force-tag-creation": true,
   "packages": {
     ".": {
-      "release-as": "1.0.0",
       "extra-files": [
         { "type": "json", "path": "plugins/zensical/package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "plugins/zensical/package-lock.json", "jsonpath": "$.version" },
