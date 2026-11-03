@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.0.0...v1.1.0) (2026-11-03)
+
+
+### Features
+
+* Build the TypeScript nav from TypeDoc's navigation JSON ([#18](https://github.com/RasmusKard/rn-cross-platform-docs/issues/18)) ([2bac786](https://github.com/RasmusKard/rn-cross-platform-docs/commit/2bac786a1a3e5b7a2921cf31fc550733348b6790))
+
+
+### Bug Fixes
+
+* Drop Dokka's androidJvm marks and empty table header rows from the site ([#22](https://github.com/RasmusKard/rn-cross-platform-docs/issues/22)) ([d920e71](https://github.com/RasmusKard/rn-cross-platform-docs/commit/d920e713469a50bed6932d28fefbb9c29c8778ef))
+* Leave inherited members out of the Kotlin reference ([#21](https://github.com/RasmusKard/rn-cross-platform-docs/issues/21)) ([5513428](https://github.com/RasmusKard/rn-cross-platform-docs/commit/551342844cd9520003f1f6b0cef3453407a6350c))
+* Leave out the Kotlin root page that the nav replaces with its one package ([#20](https://github.com/RasmusKard/rn-cross-platform-docs/issues/20)) ([175a46f](https://github.com/RasmusKard/rn-cross-platform-docs/commit/175a46fa151a54c2915a88f0ce8a39b428e8eb87))
+* List a Kotlin enum's entries in declaration order, without Dokka's synthetic members ([#23](https://github.com/RasmusKard/rn-cross-platform-docs/issues/23)) ([8763510](https://github.com/RasmusKard/rn-cross-platform-docs/commit/87635106f97ca93b5a80a8d35d74ad849a6aeebe))
+* List the rest of the guides only when the README leaves some out ([#19](https://github.com/RasmusKard/rn-cross-platform-docs/issues/19)) ([1b92903](https://github.com/RasmusKard/rn-cross-platform-docs/commit/1b929036bbd5e1cd2ca0f8614d7f80d0ebd5d584))
+
 ## 1.0.0 (2026-11-03)
 
 
