@@ -1,0 +1,24 @@
+# Changelog
+
+## 1.0.0 (2026-11-03)
+
+
+### Features
+
+* Add a reusable workflow that generates the reference ([b87f590](https://github.com/RasmusKard/rn-cross-platform-docs/commit/b87f59047bf88b4ea47c03d146a5a2d2807ae10f))
+* Add a working-directory input to the reusable workflows ([e49fe1d](https://github.com/RasmusKard/rn-cross-platform-docs/commit/e49fe1d7d7dc7b31fbfa01879fa02e44691def3b))
+* Add the CLI package skeleton with generate and detect commands ([1e76282](https://github.com/RasmusKard/rn-cross-platform-docs/commit/1e76282024bbdb03488706d10227e24f825a255a))
+* Add the expo-greeter example module ([0bc4462](https://github.com/RasmusKard/rn-cross-platform-docs/commit/0bc446268bc277794c82945500f240b9e1167cee))
+* Add the Kotlin generator ([f9d7c62](https://github.com/RasmusKard/rn-cross-platform-docs/commit/f9d7c627539612ab7b2006b468f0fcd21e4d3185))
+* Add the Swift generator ([5b44aee](https://github.com/RasmusKard/rn-cross-platform-docs/commit/5b44aee9b6fbc44d357900040e11e89addbcfeca))
+* Add the TypeScript generator ([3388b0c](https://github.com/RasmusKard/rn-cross-platform-docs/commit/3388b0cd3311c296e7d00c0f54c295928e4f0490))
+* Add the Zensical site plugin ([61cfc81](https://github.com/RasmusKard/rn-cross-platform-docs/commit/61cfc81c072b98cc1a0349268dce487614129d36))
+* Detect the library's stack ([f3a8f78](https://github.com/RasmusKard/rn-cross-platform-docs/commit/f3a8f78bba5c3a2b35f6acebb59350752851bd3a))
+* Generate from the library's native projects and add a prepare input to the workflows ([f221e8b](https://github.com/RasmusKard/rn-cross-platform-docs/commit/f221e8bb21237ce618405683c9a26017b9b2b80f))
+* Respect the repo's TypeDoc config ([b38a65b](https://github.com/RasmusKard/rn-cross-platform-docs/commit/b38a65b10222b11ae331fef6c8bee34cd2271871))
+* Run React Native codegen before Dokka on Turbo modules ([#3](https://github.com/RasmusKard/rn-cross-platform-docs/issues/3)) ([6e416ae](https://github.com/RasmusKard/rn-cross-platform-docs/commit/6e416aeb423a0bfe3aacc335df31e71795321577))
+
+
+### Performance Improvements
+
+* Cache npm, Gradle and uv downloads in the reusable workflows ([#7](https://github.com/RasmusKard/rn-cross-platform-docs/issues/7)) ([86bcf63](https://github.com/RasmusKard/rn-cross-platform-docs/commit/86bcf63b167c412b7619529b97073ab9e92fe4d8))
