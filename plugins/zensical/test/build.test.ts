@@ -93,7 +93,7 @@ await test('titles Kotlin package pages by package name', async () => {
   assert.equal(readFileSync(join(out, 'docs/kotlin/lib/com.example/index.md'), 'utf8'), '# com.example\n');
 });
 
-await test('orders guides as the README links them, then the rest, and keeps a guides/.nav.yml of its own', async () => {
+await test('orders guides as the README links them, then any rest, and keeps a guides/.nav.yml of its own', async () => {
   const root = library();
   writeFileSync(
     join(root, 'README.md'),
@@ -106,9 +106,29 @@ await test('orders guides as the README links them, then the rest, and keeps a g
   assert.equal(readFileSync(join(out, 'docs/extra.css'), 'utf8'), '.md-typeset h5 { text-transform: none; }\n');
   assert.match(readFileSync(join(out, 'zensical.toml'), 'utf8'), /^extra_css = \["extra\.css"\]$/m);
 
+  rmSync(join(root, 'guides/c.md'));
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8')),
+    { nav: ['b.md', 'a.md'] },
+    'no `*` when the README links every guide',
+  );
+  mkdirSync(join(root, 'guides/more'));
+  writeFileSync(join(root, 'guides/more/d.md'), '# D');
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8')), { nav: ['b.md', 'a.md', '*'] });
+
   writeFileSync(join(root, 'guides/.nav.yml'), 'nav: [c.md]');
   await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8'), 'nav: [c.md]');
+});
+
+await test('adds no `*` for a guides/ subfolder without Markdown, such as images/', async () => {
+  const root = library();
+  mkdirSync(join(root, 'guides/images'));
+  writeFileSync(join(root, 'guides/images/shot.png'), '');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8')), { nav: ['a.md'] });
 });
 
 await test('TypeScript follows the navigation JSON, which stays out of the site', async () => {
