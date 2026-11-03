@@ -82,6 +82,23 @@ await test('drops what precedes each reference page H1 and labels Swift code blo
   assert.match(readFileSync(join(out, 'zensical.toml'), 'utf8'), /^toc\.toc_depth = 3$/m);
 });
 
+await test('drops the Kotlin root page when the nav leaves it out', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example/-t'), { recursive: true });
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/com.example/index.md'), '# Package-level declarations');
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/com.example/-t/index.md'), '# T');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/kotlin/.nav.yml'), 'utf8')), {
+    nav: ['lib/com.example/index.md', 'lib/com.example/-t/index.md'],
+  });
+  assert.ok(!existsSync(join(out, 'docs/kotlin/index.md')));
+
+  mkdirSync(join(root, 'docs/reference/kotlin/lib/com.other'));
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/com.other/index.md'), '# Package-level declarations');
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.ok(existsSync(join(out, 'docs/kotlin/index.md')), 'kept when it lists several packages');
+});
+
 await test('titles Kotlin package pages by package name', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example'), { recursive: true });

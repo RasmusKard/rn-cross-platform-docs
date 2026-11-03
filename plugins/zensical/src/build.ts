@@ -91,7 +91,12 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
 
 /** The `.nav.yml` contents for the platform tree at `dir`. Removes the files in it that the site shouldn't publish. */
 async function treeNav(dir: string, platform: string): Promise<object> {
-  if (platform !== 'typescript') return platformNav(dir);
+  if (platform !== 'typescript') {
+    const nav = await platformNav(dir);
+    // Dokka's root page, when the nav shows its one package in its place: search and the sitemap would still list it
+    if (platform === 'kotlin' && !nav.nav.includes('index.md')) await rm(join(dir, 'index.md'), { force: true });
+    return nav;
+  }
   const navigationJson = join(dir, 'navigation.json');
   // a tree made without the navigation JSON: TypeDoc's folders, minus `_media/` and `documents/` (the guides)
   if (!existsSync(navigationJson)) return { ignore: ['_*', 'documents'] };
