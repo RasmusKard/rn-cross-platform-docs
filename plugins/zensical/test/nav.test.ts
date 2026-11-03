@@ -48,6 +48,45 @@ await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async
   });
 });
 
+await test("Kotlin: an enum's entries in declaration order, without Dokka's entries, valueOf and values", async () => {
+  const dir = tree({
+    'lib/p/-mode/index.md':
+      '# Mode\n\nSee [OFF](-o-f-f/index.md).\n\n## Entries\n\n| | |\n|---|---|\n' +
+      '| [ON](-o-n/index.md) | Unlike [OFF](-o-f-f/index.md) |\n| [AUTO](-a-u-t-o/index.md) | |\n| [OFF](-o-f-f/index.md) | |\n\n' +
+      '## Properties\n\n| Name | Summary |\n|---|---|\n| [entries](entries.md) | |\n\n' +
+      '## Functions\n\n| Name | Summary |\n|---|---|\n| [describe](describe.md) | |\n| [valueOf](value-of.md) | |\n',
+    'lib/p/-mode/-o-n/index.md': '# ON',
+    'lib/p/-mode/-a-u-t-o/index.md': '# AUTO',
+    'lib/p/-mode/-o-f-f/index.md': '# OFF',
+    'lib/p/-mode/-o-f-f/describe.md': '# describe',
+    'lib/p/-mode/describe.md': '# describe',
+    'lib/p/-mode/entries.md': '# entries',
+    'lib/p/-mode/value-of.md': '# valueOf',
+    'lib/p/-mode/values.md': '# values',
+  });
+  assert.deepEqual(await platformNav(dir), {
+    nav: [
+      'lib/p/-mode/index.md',
+      'lib/p/-mode/-o-n/index.md',
+      'lib/p/-mode/-a-u-t-o/index.md',
+      { OFF: ['lib/p/-mode/-o-f-f/index.md', 'lib/p/-mode/-o-f-f/describe.md'] },
+      'lib/p/-mode/describe.md',
+    ],
+  });
+});
+
+await test('Kotlin: a type that only mentions Entries keeps its values member', async () => {
+  const dir = tree({
+    'lib/p/-box/index.md': '# Box\n\n## Entries\n\n| | |\n|---|---|\n| [b](-b/index.md) | |\n| [a](-a/index.md) | |\n',
+    'lib/p/-box/-a/index.md': '# a',
+    'lib/p/-box/-b/index.md': '# b',
+    'lib/p/-box/values.md': '# values',
+  });
+  assert.deepEqual(await platformNav(dir), {
+    nav: ['lib/p/-box/index.md', 'lib/p/-box/-a/index.md', 'lib/p/-box/-b/index.md', 'lib/p/-box/values.md'],
+  });
+});
+
 await test('Kotlin: a page-only package among several keeps the root page', async () => {
   const dir = tree({
     'index.md': '# lib',
