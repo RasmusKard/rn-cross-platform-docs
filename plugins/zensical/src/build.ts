@@ -40,8 +40,8 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
 
 /**
  * Writes `zensical.toml` and `docs/` (README.md, guides/, one tree per platform, `.nav.yml` files) to `options.out`.
- * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), and Kotlin package
- * pages are titled by package name.
+ * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), Kotlin package
+ * pages are titled by package name, and unlabeled code blocks in Swift pages are labeled `swift`.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -76,7 +76,7 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   }
   for (const [p, title] of presentPlatforms) {
     await cp(join(referenceDir, p), join(docs, p), { recursive: true });
-    await tidyPages(join(docs, p));
+    await tidyPages(join(docs, p), p === 'swift');
     nav.push({ [title]: p });
     // TypeScript keeps TypeDoc's folders, minus `_media/` and `documents/` (the guides, already under Guides)
     const platformNavFile = p === 'typescript' ? { ignore: ['_*', 'documents'] } : await platformNav(join(docs, p));
@@ -94,15 +94,19 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
 // TypeDoc's page header and breadcrumbs, Dokka's `//[lib]/[package]/...` breadcrumb and DocC's metadata comment come
 // before the H1: they repeat the site's breadcrumbs, and Zensical's search gives the text before an H1 its own entry,
 // listing each page twice. Dokka titles every package page "Package-level declarations"; its folder is named after the
-// package.
-async function tidyPages(dir: string): Promise<void> {
+// package. DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting.
+async function tidyPages(dir: string, swift: boolean): Promise<void> {
   for await (const page of glob('**/*.md', { cwd: dir })) {
     const md = await readFile(join(dir, page), 'utf8');
     const pkg = basename(dirname(page));
-    const tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
+    let tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
+    if (swift)
+      tidy = tidy.replace(codeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
     await writeFile(join(dir, page), tidy);
   }
 }
+
+const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
 
 // keeps front matter; a page whose first `# ` line follows a code fence (no H1) stays whole
 function dropBeforeH1(md: string): string {

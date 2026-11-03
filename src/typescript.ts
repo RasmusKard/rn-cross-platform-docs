@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Application, PackageJsonReader, TSConfigReader, TypeDocReader, type OptionsReader } from 'typedoc';
-import type { Generator } from './library.ts';
+import type { Library } from './library.ts';
 
 /** Runs TypeDoc on the repo's own config, with typedoc-plugin-markdown added and the output at `out`. */
-export const generateTypeScript: Generator = async (library, out) => {
+export const generateTypeScript = async (library: Library, out: string): Promise<void> => {
   const cwd = process.cwd();
   process.chdir(library.root); // TypeDoc finds its config and resolves options from the cwd
   try {

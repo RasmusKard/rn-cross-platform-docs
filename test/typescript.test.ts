@@ -14,11 +14,6 @@ void test('writes Markdown from the repo config, keeping its plugins and options
   const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
   const library: Library = {
     root,
-    packageName: 'fixture',
-    kind: 'bare',
-    usesNitro: false,
-    usesCodegen: false,
-    exampleDir: join(root, 'example'),
     platforms: ['typescript'],
   };
 
@@ -39,11 +34,6 @@ void test('falls back to src/index.tsx and no readme when the repo sets neither'
   await generateTypeScript(
     {
       root,
-      packageName: 'no-config',
-      kind: 'bare',
-      usesNitro: false,
-      usesCodegen: false,
-      exampleDir: join(root, 'example'),
       platforms: ['typescript'],
     },
     out,

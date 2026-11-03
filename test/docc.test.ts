@@ -32,10 +32,6 @@ It is a \`BaseModule\`.
     /\(<\.\/%3F%3F\(_:_:\)\.md>\)/,
   );
   assert.match(await readFile(join(out, 'documentation/fixture/thing/run(_:)-8uxly.md'), 'utf8'), /^# run\(\\_:\)$/m);
-  assert.match(
-    await readFile(join(out, 'documentation/fixture/guide.md'), 'utf8'),
-    /\n```swift\nlet x = 1\n```\n\n```js\nx\(\)\n```\n\n```swift\ny\(\)\n```\n$/,
-  );
 });
 
 void test('the link check catches DocC links left as written', async () => {

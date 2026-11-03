@@ -28,8 +28,8 @@ Native code calls the same logic directly, with `Greeter.greet(GreetingOptions()
 
 ## Build the example site
 
-Needs the toolchains listed in the [main README](https://github.com/RasmusKard/rn-cross-platform-docs#install) and
-[uv](https://docs.astral.sh/uv/getting-started/installation/). From the repo root:
+Needs JDK 17 for Kotlin, Xcode and CocoaPods for Swift, and [uv](https://docs.astral.sh/uv/getting-started/installation/)
+for the site. From the repo root:
 
 ```sh
 npm ci

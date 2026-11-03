@@ -12,6 +12,15 @@ on:
       install:
         type: string
         default: ''
+      prepare:
+        type: string
+        default: ''
+      gradle-project:
+        type: string
+        default: example/android
+      xcode-workspace:
+        type: string
+        default: example/ios
       node-version:
         type: string
         default: '24'
@@ -33,6 +42,9 @@ jobs:
     with:
       platforms: ${{ inputs.platforms }}
       install: ${{ inputs.install }}
+      prepare: ${{ inputs.prepare }}
+      gradle-project: ${{ inputs.gradle-project }}
+      xcode-workspace: ${{ inputs.xcode-workspace }}
       node-version: ${{ inputs.node-version }}
       xcode-version: ${{ inputs.xcode-version }}
       macos-runner: ${{ inputs.macos-runner }}

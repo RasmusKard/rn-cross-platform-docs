@@ -13,6 +13,20 @@ on:
         description: Shell command that installs the repo's and the example app's dependencies (default picks one from the lockfile)
         type: string
         default: ''
+      prepare:
+        description: >-
+          Shell command that makes the library compile in `gradle-project` and `xcode-workspace`, e.g.
+          `cd example && npx expo prebuild`; runs after install, with `$PLATFORM` set
+        type: string
+        default: ''
+      gradle-project:
+        description: Gradle build that includes the library, relative to `working-directory`
+        type: string
+        default: example/android
+      xcode-workspace:
+        description: .xcworkspace that builds the library's pod, or a directory holding one, relative to `working-directory`
+        type: string
+        default: example/ios
       node-version:
         type: string
         default: '24'
@@ -82,13 +96,22 @@ jobs:
             npm ci
             if [ -f example/package-lock.json ]; then (cd example && npm ci); fi
           fi
+      - if: inputs.prepare != ''
+        env:
+          PREPARE: ${{ inputs.prepare }}
+        run: eval "$PREPARE"
       - id: detect
         run: |
-          detected=$(npx --no-install rn-cross-platform-docs detect)
+          detected=$(npx --no rn-cross-platform-docs detect)
           if grep -qx "$PLATFORM" <<< "$detected"; then echo found=true >> "$GITHUB_OUTPUT"
           else echo "::notice::No $PLATFORM sources detected; skipping $PLATFORM"; fi
       - if: steps.detect.outputs.found
-        run: npx --no-install rn-cross-platform-docs generate --out "$RUNNER_TEMP/reference" --platforms "$PLATFORM"
+        env:
+          GRADLE_PROJECT: ${{ inputs.gradle-project }}
+          XCODE_WORKSPACE: ${{ inputs.xcode-workspace }}
+        run: |
+          npx --no rn-cross-platform-docs generate --out "$RUNNER_TEMP/reference" --platforms "$PLATFORM" \
+            --gradle-project "$GRADLE_PROJECT" --xcode-workspace "$XCODE_WORKSPACE"
       - if: steps.detect.outputs.found
         run: tar -cf "$RUNNER_TEMP/$PLATFORM.tar" -C "$RUNNER_TEMP/reference" "$PLATFORM"
       - if: steps.detect.outputs.found

@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "prepare": "tsc",
-    "docs": "rn-cross-platform-docs generate && rn-cross-platform-docs-zensical build"
+    "docs": "(cd example && expo prebuild) && rn-cross-platform-docs generate && rn-cross-platform-docs-zensical build"
   },
   "keywords": [
     "react-native",

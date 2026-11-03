@@ -12,9 +12,12 @@ one tree per platform: <out>/typescript/, <out>/kotlin/, <out>/swift/.
 detect prints the platforms it would generate by default, one per line.
 
 Options:
-  --out <dir>          output root (default: docs/reference)
-  --platforms <list>   comma-separated subset of ${allPlatforms.join(',')} (default: all detected)
-  -h, --help           show this help
+  --out <dir>                output root (default: docs/reference)
+  --platforms <list>         comma-separated subset of ${allPlatforms.join(',')} (default: all detected)
+  --gradle-project <dir>     Gradle build that includes the library (default: example/android)
+  --xcode-workspace <path>   .xcworkspace that builds the library's pod, or a directory
+                             holding one (default: example/ios)
+  -h, --help                 show this help
 `;
 
 const fail = (e: Error) => {
@@ -33,6 +36,8 @@ try {
     options: {
       out: { type: 'string', default: 'docs/reference' },
       platforms: { type: 'string' },
+      'gradle-project': { type: 'string' },
+      'xcode-workspace': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -53,5 +58,8 @@ if (args.values.help || args.positionals.length === 0) {
   const platforms = args.values.platforms?.split(',').map((p) => p.trim()) as Platform[] | undefined;
   const unknown = platforms?.filter((p) => !allPlatforms.includes(p)) ?? [];
   if (unknown.length) usageError(`Unknown platform: ${unknown.join(', ')}`);
-  else await generate(process.cwd(), { out: args.values.out, platforms }).catch(fail);
+  else {
+    const { out, 'gradle-project': gradleProject, 'xcode-workspace': xcodeWorkspace } = args.values;
+    await generate(process.cwd(), { out, platforms, gradleProject, xcodeWorkspace }).catch(fail);
+  }
 }

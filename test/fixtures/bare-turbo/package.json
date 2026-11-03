@@ -1,1 +1,1 @@
-{ "name": "react-native-turbo-probe", "codegenConfig": { "name": "TurboProbeSpec", "type": "modules", "jsSrcsDir": "src" } }
+{ "name": "react-native-turbo-probe" }

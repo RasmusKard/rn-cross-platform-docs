@@ -1,20 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { generateKotlin } from '../src/kotlin.ts';
-import type { Library } from '../src/library.ts';
+import type { Build, Library } from '../src/library.ts';
 
-const root = new URL('fixtures/existing-dokka', import.meta.url).pathname;
+const noBuild: Build = { gradleDir: '/nonexistent/android', xcodeWorkspace: '/nonexistent/ios' };
 
-void test('a package that already applies Dokka is rejected before any build', async () => {
-  const library: Library = {
-    root,
-    packageName: 'existing-dokka',
-    kind: 'bare',
-    usesNitro: false,
-    usesCodegen: false,
-    exampleDir: `${root}/example`,
-    platforms: ['kotlin'],
-    gradleProject: ':existing-dokka',
-  };
-  await assert.rejects(generateKotlin(library, `${root}/out`), /android\/build\.gradle\.kts already applies Dokka/);
+void test('a missing Android project is an error naming it', async () => {
+  const library: Library = { root: new URL('fixtures/bare-turbo', import.meta.url).pathname, platforms: ['kotlin'] };
+  await assert.rejects(generateKotlin(library, '/nonexistent/out', noBuild), /No \/nonexistent\/android\/gradlew/);
 });

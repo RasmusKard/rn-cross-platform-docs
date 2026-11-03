@@ -1,7 +1,11 @@
-// Applies Dokka 2 with the GFM (Markdown) format to one subproject, leaving its build files untouched.
-// Usage: ./gradlew --init-script dokka-gfm.init.gradle -PdokkaProject=:<name> :<name>:dokkaGenerateMarkdown
+// Applies Dokka 2 with the GFM (Markdown) format to the project in one directory, leaving its build files untouched.
+// Usage: ./gradlew --init-script dokka-gfm.init.gradle -PdokkaProjectDir=<absolute dir> dokkaGenerateMarkdown
 def dokkaVersion = '2.2.0'
-def target = gradle.startParameter.projectProperties['dokkaProject']
+def dokkaProjectDir = gradle.startParameter.projectProperties['dokkaProjectDir']
+// included builds (e.g. React Native's Gradle plugin) run this script too, without the property
+if (dokkaProjectDir == null) return
+def targetDir = new File(dokkaProjectDir).canonicalFile
+def matched = false
 
 // Dokka must share a classloader with AGP and KGP to find the Android sources, so it goes on the root buildscript
 // classpath; from the init script's own classpath it can't see them ("Dokka could not load KotlinBasePlugin").
@@ -25,12 +29,27 @@ abstract class DokkaMarkdownPlugin extends DokkaFormatPlugin {
 '''
 
 gradle.beforeProject { p ->
-  if (p.path != target) return
-  def loader = p.rootProject.buildscript.classLoader
-  p.pluginManager.apply(loader.loadClass('org.jetbrains.dokka.gradle.DokkaPlugin'))
-  p.pluginManager.apply(new GroovyClassLoader(loader).parseClass(markdownPluginSource))
-  // KGP's 'main' and AGP's 'release' both get src/main, which Dokka rejects ("have the common source roots")
-  p.extensions.getByName('dokka').dokkaSourceSets.matching { it.name == 'release' }.configureEach { it.suppress.set(true) }
-  // Dokka's inputs miss sources that appear later (RN codegen output), so it would keep a stale result
-  p.tasks.matching { it.name.startsWith('dokkaGenerate') }.configureEach { it.outputs.upToDateWhen { false } }
+  if (p.projectDir.canonicalFile != targetDir) return
+  matched = true
+  // applied after evaluation so a Dokka the project applies itself shows here instead of merging with ours
+  p.afterEvaluate {
+    if (p.pluginManager.hasPlugin('org.jetbrains.dokka')) {
+      throw new GradleException("$targetDir already applies Dokka (org.jetbrains.dokka); generate the Kotlin docs with it instead")
+    }
+    def loader = p.rootProject.buildscript.classLoader
+    p.pluginManager.apply(loader.loadClass('org.jetbrains.dokka.gradle.DokkaPlugin'))
+    p.pluginManager.apply(new GroovyClassLoader(loader).parseClass(markdownPluginSource))
+    // KGP's 'main' and AGP's 'release' both get src/main, which Dokka rejects ("have the common source roots")
+    p.extensions.getByName('dokka').dokkaSourceSets.matching { it.name == 'release' }.configureEach { it.suppress.set(true) }
+    p.tasks.matching { it.name.startsWith('dokkaGenerate') }.configureEach {
+      // Dokka doesn't depend on codegen, so without preBuild the generated spec supertype is an unresolved ERROR CLASS
+      it.dependsOn(p.tasks.matching { it.name == 'preBuild' })
+      // Dokka's inputs miss sources that appear later (RN codegen output), so it would keep a stale result
+      it.outputs.upToDateWhen { false }
+    }
+  }
+}
+
+gradle.projectsEvaluated {
+  if (!matched) throw new GradleException("No project in this Gradle build has the directory $targetDir")
 }

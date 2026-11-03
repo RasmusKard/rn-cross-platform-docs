@@ -12,7 +12,6 @@ export async function findArchive(dir: string): Promise<string> {
 /**
  * Writes the archive of Swift module `module` (its Markdown pages and images) to `out`, with symbol links and image paths
  * made relative. A page with child pages moves to `<page>/index.md`, which site generators use as the section's page.
- * Unlabeled code blocks are labeled `swift`.
  */
 export async function exportArchive(archive: string, module: string, out: string): Promise<void> {
   const manifest = `${module}-markdown-manifest.json`;
@@ -31,14 +30,10 @@ export async function exportArchive(archive: string, module: string, out: string
     let md = rewriteLinks(await readFile(join(archive, 'data', page), 'utf8'), file, files);
     // DocC leaves `_` unescaped in titles, so ask(_:_:) would render as ask(<em>:</em>:)
     md = md.replace(/^# .*/m, (h) => h.replace(/_/g, '\\_'));
-    md = md.replace(unlabeledCodeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
     await mkdir(dirname(join(out, file)), { recursive: true });
     await writeFile(join(out, file), md);
   }
 }
-
-// DocC writes declarations in unlabeled code blocks; they get labeled `swift` for syntax highlighting
-const unlabeledCodeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
 
 /**
  * Maps each page identifier, lowercased, to its file in the tree: `<id>/index.md` for a page with child pages, else

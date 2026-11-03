@@ -25,3 +25,4 @@ jobs:
       working-directory: examples/expo-greeter
       # the example links the CLI and plugin from this checkout, so build those first
       install: (cd ../.. && npm ci) && (cd ../../plugins/zensical && npm ci) && npm ci && (cd example && npm ci)
+      prepare: cd example && npx expo prebuild

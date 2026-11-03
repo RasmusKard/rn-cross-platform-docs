@@ -55,7 +55,7 @@ await test('repoUrl turns package.json repository forms into web URLs', () => {
   assert.equal(repoUrl(undefined), undefined);
 });
 
-await test('drops what precedes each reference page H1', async () => {
+await test('drops what precedes each reference page H1 and labels Swift code blocks', async () => {
   const root = library();
   writeFileSync(
     join(root, 'docs/reference/kotlin/index.md'),
@@ -64,7 +64,7 @@ await test('drops what precedes each reference page H1', async () => {
   mkdirSync(join(root, 'docs/reference/swift/documentation/m'), { recursive: true });
   writeFileSync(
     join(root, 'docs/reference/swift/documentation/m/index.md'),
-    '<!--\n{\n  "title" : "M"\n}\n-->\n\n# M\n\n<!-- kept -->',
+    '<!--\n{\n  "title" : "M"\n}\n-->\n\n# M\n\n<!-- kept -->\n\n```\nlet x = 1\n```\n\n```js\nx()\n```\n\n```\ny()\n```\n',
   );
   mkdirSync(join(root, 'docs/reference/typescript'));
   writeFileSync(join(root, 'docs/reference/typescript/README.md'), '[**my-lib**](README.md)\n\n***\n\n# my-lib\n\n***');
@@ -72,7 +72,10 @@ await test('drops what precedes each reference page H1', async () => {
   writeFileSync(join(root, 'docs/reference/typescript/no-h1.md'), 'Text\n\n```sh\n# install\n```\n');
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'), '# my-lib\n\n// not a breadcrumb');
-  assert.equal(readFileSync(join(out, 'docs/swift/documentation/m/index.md'), 'utf8'), '# M\n\n<!-- kept -->');
+  assert.equal(
+    readFileSync(join(out, 'docs/swift/documentation/m/index.md'), 'utf8'),
+    '# M\n\n<!-- kept -->\n\n```swift\nlet x = 1\n```\n\n```js\nx()\n```\n\n```swift\ny()\n```\n',
+  );
   assert.equal(readFileSync(join(out, 'docs/typescript/README.md'), 'utf8'), '# my-lib\n\n***');
   assert.equal(readFileSync(join(out, 'docs/typescript/front.md'), 'utf8'), '---\ntitle: T\n---\n# T');
   assert.equal(readFileSync(join(out, 'docs/typescript/no-h1.md'), 'utf8'), 'Text\n\n```sh\n# install\n```\n');
