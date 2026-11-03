@@ -2,7 +2,16 @@
   "name": "@rn-cross-platform-docs/zensical",
   "version": "1.0.0",
   "description": "Builds a Zensical docs site from the Markdown API reference made by rn-cross-platform-docs",
-  "keywords": ["react-native", "expo", "native-modules", "api-reference", "documentation", "zensical", "docs-site", "markdown"],
+  "keywords": [
+    "react-native",
+    "expo",
+    "native-modules",
+    "api-reference",
+    "documentation",
+    "zensical",
+    "docs-site",
+    "markdown"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
