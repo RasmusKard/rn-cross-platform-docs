@@ -71,6 +71,8 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
   from your TypeDoc config.
 - Swift file names contain `:` and `!`, so Windows can't check out a committed Swift tree.
+- Kotlin pages list only the members a class declares or overrides. Inherited ones, from Android and React Native base
+  classes too, would otherwise fill the page with links to anchors Dokka's Markdown doesn't write.
 
 ### Zensical site
 
@@ -79,6 +81,5 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - The TypeScript nav is typedoc-plugin-markdown's navigation, so TypeDoc's grouping, category and sorting options and
   its `navigation` options shape it.
 - Swift deprecation doesn't show: DocC only writes it in a metadata comment.
-- Zensical's warnings about Kotlin links to inherited members are expected; the anchors don't exist.
 - If TypeDoc also copies the guides (`documents/`), those copies stay out of the nav, but search lists each guide twice
   and their links outside `guides/` break.
