@@ -68,12 +68,16 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 
 - Swift docs build the Xcode scheme named after the podspec file, in `--xcode-workspace`.
 - TypeDoc runs on your own `typedoc.json`; without one, the entry point is `src/index.ts(x)` and no README page is made.
+- The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
+  from your TypeDoc config.
 - Swift file names contain `:` and `!`, so Windows can't check out a committed Swift tree.
 
 ### Zensical site
 
 - Guides are listed in the order the README links them; `guides/.nav.yml` overrides that. Site name, description and
   repo link come from `package.json`.
+- The TypeScript nav is typedoc-plugin-markdown's navigation, so TypeDoc's grouping, category and sorting options and
+  its `navigation` options shape it.
 - Swift deprecation doesn't show: DocC only writes it in a metadata comment.
 - Zensical's warnings about Kotlin links to inherited members are expected; the anchors don't exist.
 - If TypeDoc also copies the guides (`documents/`), those copies stay out of the nav, but search lists each guide twice

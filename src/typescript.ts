@@ -3,7 +3,10 @@ import { join } from 'node:path';
 import { Application, PackageJsonReader, TSConfigReader, TypeDocReader, type OptionsReader } from 'typedoc';
 import type { Library } from './library.ts';
 
-/** Runs TypeDoc on the repo's own config, with typedoc-plugin-markdown added and the output at `out`. */
+/**
+ * Runs TypeDoc on the repo's own config, with typedoc-plugin-markdown added and the output at `out`, plus the plugin's
+ * navigation JSON at `<out>/navigation.json`.
+ */
 export const generateTypeScript = async (library: Library, out: string): Promise<void> => {
   const cwd = process.cwd();
   process.chdir(library.root); // TypeDoc finds its config and resolves options from the cwd
@@ -12,7 +15,7 @@ export const generateTypeScript = async (library: Library, out: string): Promise
       new TypeDocReader(),
       new PackageJsonReader(),
       new TSConfigReader(),
-      markdownDefaults(library.root),
+      markdownDefaults(library.root, out),
     ]);
     const failed = () => new Error(`TypeDoc failed in ${library.root}`);
     throwIfLogged(app, failed);
@@ -32,7 +35,7 @@ export const generateTypeScript = async (library: Library, out: string): Promise
 };
 
 // runs after the repo's config, so everything but the Markdown plugin applies only where the config is silent
-function markdownDefaults(root: string): OptionsReader {
+function markdownDefaults(root: string, out: string): OptionsReader {
   return {
     name: 'rn-cross-platform-docs',
     order: 300, // after the config file and tsconfig readers
@@ -42,6 +45,8 @@ function markdownDefaults(root: string): OptionsReader {
       if (!plugins.some((p) => p === 'typedoc-plugin-markdown'))
         options.setValue('plugin', [...plugins, 'typedoc-plugin-markdown']);
 
+      // overridden like `out`, for the site plugin; TypeDoc reads options again once the Markdown plugin declares it
+      if (options.getDeclaration('navigationJson')) options.setValue('navigationJson', join(out, 'navigation.json'));
       if (!options.isSet('readme')) options.setValue('readme', 'none');
 
       // TypeDoc's own fallback reads package.json exports, which point at unbuilt output in RN library scaffolds

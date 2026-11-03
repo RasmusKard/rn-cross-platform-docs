@@ -21,7 +21,9 @@ void test('writes Markdown from the repo config, keeping its plugins and options
 
   assert.deepEqual(readdirSync(join(out, 'functions')), ['greet.md']);
   assert.match(readFileSync(join(out, 'README.md'), 'utf8'), /Fixture readme/, 'the config `readme` wins');
-  assert.ok(!existsSync(join(root, 'docs')), 'the config `out` is overridden');
+  assert.ok(!existsSync(join(root, 'docs')), 'the config `out` and `navigationJson` are overridden');
+  const nav = JSON.parse(readFileSync(join(out, 'navigation.json'), 'utf8')) as { children: { path: string }[] }[];
+  assert.equal(nav[0].children[0].path, 'functions/greet.md');
   const logged = info.mock.calls.map((c) => stripVTControlCharacters(String(c.arguments[0])));
   assert.ok(logged.includes('[info] local plugin loaded'));
 });
@@ -40,5 +42,6 @@ void test('falls back to src/index.tsx and no readme when the repo sets neither'
   );
 
   assert.deepEqual(readdirSync(join(out, 'functions')), ['hello.md']);
+  assert.ok(existsSync(join(out, 'navigation.json')));
   assert.doesNotMatch(readFileSync(join(out, 'README.md'), 'utf8'), /No-config readme/);
 });

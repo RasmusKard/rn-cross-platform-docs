@@ -20,6 +20,42 @@ export async function platformNav(dir: string): Promise<{ nav: NavItem[] }> {
   return { nav: packages.length === 1 ? inner : ['index.md', ...inner] };
 }
 
+/** An entry of typedoc-plugin-markdown's navigation JSON (its `navigationJson` option). */
+export interface TypeDocNavItem {
+  title: string;
+  kind?: number;
+  path?: string | null;
+  children?: TypeDocNavItem[];
+}
+
+const documentKind = 8388608; // TypeDoc's ReflectionKind.Document
+
+/**
+ * Returns the `.nav.yml` contents for the TypeDoc tree at `dir` from its navigation JSON, so the nav has TypeDoc's
+ * sections, titles and order: a reflection with children becomes a section, its page first. The root pages the JSON
+ * leaves out (the project page, and the readme when it has a page of its own) come first, README.md or index.md leading.
+ * Documents (`documents/`) are left out: they are copies of the guides.
+ */
+export async function typescriptNav(dir: string, json: TypeDocNavItem[]): Promise<{ nav: NavItem[] }> {
+  const listed = new Set<string>();
+  const nav = fromTypeDoc(json, listed);
+  const isIndex = (f: string) => f === 'README.md' || f === 'index.md';
+  const roots = (await readdir(dir))
+    .filter((f) => f.endsWith('.md') && !listed.has(f))
+    .sort((a, b) => Number(isIndex(b)) - Number(isIndex(a)) || a.localeCompare(b, 'en'));
+  return { nav: [...roots, ...nav] };
+}
+
+function fromTypeDoc(items: TypeDocNavItem[], listed: Set<string>): NavItem[] {
+  return items.flatMap(({ title, kind, path, children = [] }): NavItem[] => {
+    if (kind === documentKind) return [];
+    if (path) listed.add(path);
+    const inner = fromTypeDoc(children, listed);
+    if (!inner.length) return path ? [{ [title]: path }] : [];
+    return [{ [title]: path ? [path, ...inner] : inner }];
+  });
+}
+
 async function sectionNav(root: string, rel: string): Promise<NavItem[]> {
   const entries = (await readdir(join(root, rel), { withFileTypes: true })).sort((a, b) =>
     a.name.localeCompare(b.name, 'en'),
