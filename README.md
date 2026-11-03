@@ -11,7 +11,7 @@ docs/reference/
 ```
 
 - Site plugins: [Zensical](plugins/zensical/) (`@rn-cross-platform-docs/zensical`)
-- Example: [examples/expo-greeter](examples/expo-greeter/), a minimal Expo module
+- [Example Zensical site](https://rasmuskard.github.io/rn-cross-platform-docs/) ( [Built from](examples/expo-greeter/) )
 
 ## Usage
 
