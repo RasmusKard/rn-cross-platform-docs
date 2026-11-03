@@ -125,11 +125,16 @@ function dropBeforeH1(md: string): string {
   return first?.[0] === '# ' ? front + rest.slice(first.index) : md;
 }
 
-/** The guides in the order the README links them, then the rest. */
+/** The guides in the order the README links them, then the rest, if there are any. */
 async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }> {
   const readme = await readFile(join(root, 'README.md'), 'utf8');
   const linked = [...readme.matchAll(/\]\((?:\.\/)?guides\/([^)#\s]+\.md)/g)].map((m) => m[1]);
-  return { nav: [...new Set(linked)].filter((f) => existsSync(join(docs, 'guides', f))).concat('*') };
+  const nav = [...new Set(linked)].filter((f) => existsSync(join(docs, 'guides', f)));
+  // awesome-nav warns about a `*` that matches nothing
+  for await (const f of glob('**/*.md', { cwd: join(docs, 'guides') })) {
+    if (!nav.includes(f)) return { nav: [...nav, '*'] };
+  }
+  return { nav };
 }
 
 interface Package {
