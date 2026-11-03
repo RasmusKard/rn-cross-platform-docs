@@ -111,7 +111,24 @@ await test('orders guides as the README links them, then the rest, and keeps a g
   assert.equal(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8'), 'nav: [c.md]');
 });
 
-await test('TypeScript hides _media/ and documents/', async () => {
+await test('TypeScript follows the navigation JSON, which stays out of the site', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/functions'), { recursive: true });
+  writeFileSync(join(root, 'docs/reference/typescript/README.md'), '# my-lib');
+  writeFileSync(join(root, 'docs/reference/typescript/functions/f.md'), '# f');
+  writeFileSync(
+    join(root, 'docs/reference/typescript/navigation.json'),
+    '[{"title":"Functions","children":[{"title":"f","kind":64,"path":"functions/f.md"}]}]',
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/typescript/.nav.yml'), 'utf8')), {
+    nav: ['README.md', { Functions: [{ f: 'functions/f.md' }] }],
+  });
+  assert.ok(!existsSync(join(out, 'docs/typescript/navigation.json')));
+  assert.ok(existsSync(join(root, 'docs/reference/typescript/navigation.json')), 'the reference stays as it was');
+});
+
+await test('TypeScript without navigation JSON hides _media/ and documents/', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/typescript'));
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });

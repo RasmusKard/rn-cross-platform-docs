@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { platformNav } from '../src/nav.ts';
+import { platformNav, typescriptNav } from '../src/nav.ts';
 
 function tree(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), 'nav-'));
@@ -128,5 +128,51 @@ await test('a section whose page has no heading is titled by its folder name', a
   });
   assert.deepEqual(await platformNav(dir), {
     nav: [{ '-web-view': ['lib/-web-view/index.md', 'lib/-web-view/load.md'] }, 'other.md'],
+  });
+});
+
+await test('TypeScript: sections and titles from TypeDoc navigation JSON, root pages first, documents left out', async () => {
+  const dir = tree({ 'globals.md': '', 'hierarchy.md': '', 'README.md': '', 'lib/README.md': '' });
+  const json = [
+    { title: 'Hierarchy', path: 'hierarchy.md' },
+    { title: 'Documents', children: [{ title: 'Guide', kind: 8388608, path: 'documents/Guide.md' }] },
+    {
+      title: '@scope/lib',
+      kind: 2,
+      path: 'lib/README.md',
+      children: [
+        {
+          title: 'Core',
+          children: [
+            {
+              title: 'NS',
+              kind: 4,
+              path: 'lib/namespaces/NS/README.md',
+              children: [{ title: 'Functions', children: [{ title: 'f', kind: 64, path: 'lib/namespaces/NS/f.md' }] }],
+            },
+            { title: 'Props', kind: 256, path: 'lib/interfaces/Props.md', isDeprecated: false },
+          ],
+        },
+        { title: 'Empty', children: [] },
+      ],
+    },
+  ];
+  assert.deepEqual(await typescriptNav(dir, json), {
+    nav: [
+      'README.md',
+      'globals.md',
+      { Hierarchy: 'hierarchy.md' },
+      {
+        '@scope/lib': [
+          'lib/README.md',
+          {
+            Core: [
+              { NS: ['lib/namespaces/NS/README.md', { Functions: [{ f: 'lib/namespaces/NS/f.md' }] }] },
+              { Props: 'lib/interfaces/Props.md' },
+            ],
+          },
+        ],
+      },
+    ],
   });
 });

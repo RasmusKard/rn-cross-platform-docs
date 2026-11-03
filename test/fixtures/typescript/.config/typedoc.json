@@ -1,6 +1,7 @@
 {
   "entryPoints": ["../src/index.ts"],
   "out": "../docs",
+  "navigationJson": "../docs/navigation.json",
   "plugin": ["./local-plugin.mjs"],
   "readme": "../README.md",
   "treatWarningsAsErrors": true

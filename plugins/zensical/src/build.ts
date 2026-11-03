@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { cp, glob, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
-import { platformNav, type NavItem } from './nav.ts';
+import { platformNav, typescriptNav, type NavItem, type TypeDocNavItem } from './nav.ts';
 
 /** Zensical version and the date its unpinned Python dependencies are resolved at (`uvx --exclude-newer`). */
 const zensical = { version: '0.0.74', resolvedAt: '2026-10-31T00:00:00Z' };
@@ -78,9 +78,7 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
     await cp(join(referenceDir, p), join(docs, p), { recursive: true });
     await tidyPages(join(docs, p), p === 'swift');
     nav.push({ [title]: p });
-    // TypeScript keeps TypeDoc's folders, minus `_media/` and `documents/` (the guides, already under Guides)
-    const platformNavFile = p === 'typescript' ? { ignore: ['_*', 'documents'] } : await platformNav(join(docs, p));
-    await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(platformNavFile));
+    await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(await treeNav(join(docs, p), p)));
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
   // the theme sets h5 in capitals, which TypeDoc uses for parameter names
@@ -89,6 +87,17 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
   await writeFile(toml, zensicalToml(pkg, siteUrl));
   return projectDir;
+}
+
+/** The `.nav.yml` contents for the platform tree at `dir`. Removes the files in it that the site shouldn't publish. */
+async function treeNav(dir: string, platform: string): Promise<object> {
+  if (platform !== 'typescript') return platformNav(dir);
+  const navigationJson = join(dir, 'navigation.json');
+  // a tree made without the navigation JSON: TypeDoc's folders, minus `_media/` and `documents/` (the guides)
+  if (!existsSync(navigationJson)) return { ignore: ['_*', 'documents'] };
+  const json = JSON.parse(await readFile(navigationJson, 'utf8')) as TypeDocNavItem[];
+  await rm(navigationJson);
+  return await typescriptNav(dir, json);
 }
 
 // TypeDoc's page header and breadcrumbs, Dokka's `//[lib]/[package]/...` breadcrumb and DocC's metadata comment come
