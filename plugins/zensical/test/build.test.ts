@@ -99,6 +99,24 @@ await test('drops the Kotlin root page when the nav leaves it out', async () => 
   assert.ok(existsSync(join(out, 'docs/kotlin/index.md')), 'kept when it lists several packages');
 });
 
+await test("drops Dokka's androidJvm marks and hides empty table header rows", async () => {
+  const root = library();
+  writeFileSync(
+    join(root, 'docs/reference/kotlin/index.md'),
+    '# f\n\n[androidJvm]\\\nfun f(x: Int)\n\n#### Parameters\n\nandroidJvm\n\n| | |\n|---|---|\n' +
+      '| x | [androidJvm]<br>val x |\n\nandroidJvm\n\nandroidJvm text',
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'),
+    '# f\n\nfun f(x: Int)\n\n#### Parameters\n\n| | |\n|---|---|\n| x | val x |\n\nandroidJvm\n\nandroidJvm text',
+  );
+  assert.match(
+    readFileSync(join(out, 'docs/extra.css'), 'utf8'),
+    /^\.md-typeset thead:not\(:has\(th:not\(:empty\)\)\) \{ display: none; \}$/m,
+  );
+});
+
 await test('titles Kotlin package pages by package name', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example'), { recursive: true });
@@ -120,7 +138,7 @@ await test('orders guides as the README links them, then any rest, and keeps a g
   writeFileSync(join(root, 'guides/c.md'), '# C');
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8')), { nav: ['b.md', 'a.md', '*'] });
-  assert.equal(readFileSync(join(out, 'docs/extra.css'), 'utf8'), '.md-typeset h5 { text-transform: none; }\n');
+  assert.match(readFileSync(join(out, 'docs/extra.css'), 'utf8'), /^\.md-typeset h5 \{ text-transform: none; \}$/m);
   assert.match(readFileSync(join(out, 'zensical.toml'), 'utf8'), /^extra_css = \["extra\.css"\]$/m);
 
   rmSync(join(root, 'guides/c.md'));
