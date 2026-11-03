@@ -79,7 +79,7 @@ jobs:
           elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
           else npm ci
           fi
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           version: 0.13.5
           # the plugin pins Zensical, so its version decides when the uv cache is stale
