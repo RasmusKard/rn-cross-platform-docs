@@ -83,10 +83,11 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
   // the theme sets h5 in capitals, which TypeDoc uses for parameter names; Dokka's tables of parameters, entries and
-  // exceptions have empty header rows
+  // exceptions have empty header rows; its break-word splits identifiers in table cells, where a wide table scrolls
   await writeFile(
     join(docs, 'extra.css'),
-    '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n',
+    '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
+      '.md-typeset table code { word-break: normal; }\n',
   );
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
