@@ -42,7 +42,8 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Writes `zensical.toml` and `docs/` (README.md, guides/, one tree per platform, `.nav.yml` files) to `options.out`.
  * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), Kotlin pages lose
  * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
- * Swift pages are labeled `swift`, and TypeScript pages' Parameters and Returns headings become bold labels.
+ * Swift pages are labeled `swift`, TypeScript pages' Parameters and Returns headings become bold labels, and Kotlin
+ * enum Entries tables get a Name and Summary header and lose the repeated entry name.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -83,8 +84,8 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
   // the theme sets h5 in capitals, which TypeDoc uses for parameter names, and its break-word splits identifiers in
-  // table cells, where a wide table scrolls instead; Dokka's tables of parameters, entries and exceptions have empty
-  // header rows; the sidebar cuts off a label that is one long identifier, where it can wrap instead
+  // table cells, where a wide table scrolls instead; Dokka's tables of parameters and exceptions have empty header
+  // rows; the sidebar cuts off a label that is one long identifier, where it can wrap instead
   await writeFile(
     join(docs, 'extra.css'),
     '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
@@ -124,7 +125,7 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
     const md = await readFile(join(dir, page), 'utf8');
     const pkg = basename(dirname(page));
     let tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
-    if (platform === 'kotlin') tidy = tidy.replace(sourceSetHint, '');
+    if (platform === 'kotlin') tidy = tidy.replace(sourceSetHint, '').replace(entries, entriesTable);
     if (platform === 'typescript')
       tidy = tidy.replace(typedocLabel, (m, label?: string) => (label ? `**${label}**` : m));
     if (platform === 'swift')
@@ -136,6 +137,11 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
 const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
 // a code block, so a heading in an example stays, or one of TypeDoc's labels
 const typedocLabel = /^```[\s\S]*?^```$|^#{2,6} (Parameters|Returns)$/gm;
+// Dokka's enum Entries table: no header, and each row repeats the entry's name as its signature
+const entries = /^## Entries\n\n\| \| \|\n\|---\|---\|\n((?:\|.*\n?)+)/m;
+// an entry with arguments or annotations keeps its signature
+const entriesTable = (_table: string, rows: string) =>
+  `## Entries\n\n| Name | Summary |\n|---|---|\n${rows.replace(/^(\| (\[[^\]]+\]\([^)]+\)) \| )\2(?:<br>| (?=\|$))/gm, '$1')}`;
 const sourceSetHint = /^\[androidJvm\]\\\n|\[androidJvm\]<br>|^androidJvm\n\n(?=\|)/gm;
 
 // keeps front matter; a page whose first `# ` line follows a code fence (no H1) stays whole

@@ -288,3 +288,20 @@ await test("turns TypeDoc's Parameters and Returns headings into bold labels, ou
   assert.equal(readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'), '# f\n\n#### Parameters\n');
   assert.equal(readFileSync(join(out, 'docs/guides/a.md'), 'utf8'), '# A\n\n## Returns\n');
 });
+
+await test('gives Kotlin enum Entries tables a header, without the repeated entry name', async () => {
+  const root = library();
+  writeFileSync(
+    join(root, 'docs/reference/kotlin/index.md'),
+    '# E\n\n## Entries\n\n| | |\n|---|---|\n' +
+      '| [A](-a/index.md) | [androidJvm]<br>[A](-a/index.md)<br>The first. |\n' +
+      '| [B](-b/index.md) | [androidJvm]<br>[B](-b/index.md) |\n' +
+      '| [C](-c/index.md) | [androidJvm]<br>[C](-c/index.md)(0xFF0000)<br>With an argument. |\n\n## Properties\n',
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'),
+    '# E\n\n## Entries\n\n| Name | Summary |\n|---|---|\n| [A](-a/index.md) | The first. |\n| [B](-b/index.md) | |\n' +
+      '| [C](-c/index.md) | [C](-c/index.md)(0xFF0000)<br>With an argument. |\n\n## Properties\n',
+  );
+});
