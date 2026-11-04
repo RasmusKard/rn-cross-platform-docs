@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.1.0...v1.2.0) (2026-11-04)
+
+
+### Features
+
+* Use the library's Module.md and DocC catalog for the Kotlin and Swift landing pages ([#31](https://github.com/RasmusKard/rn-cross-platform-docs/issues/31)) ([855782e](https://github.com/RasmusKard/rn-cross-platform-docs/commit/855782e9704c67ebd13532be0195fbe726744a09))
+
+
+### Bug Fixes
+
+* Give Kotlin enum Entries tables a header, without the repeated entry name ([#30](https://github.com/RasmusKard/rn-cross-platform-docs/issues/30)) ([3d457df](https://github.com/RasmusKard/rn-cross-platform-docs/commit/3d457df1bf2fb666cec2bd4d3ff8d6bf40e8c734))
+* Keep code in table cells from breaking mid-identifier; a wide table scrolls ([#27](https://github.com/RasmusKard/rn-cross-platform-docs/issues/27)) ([eb30a17](https://github.com/RasmusKard/rn-cross-platform-docs/commit/eb30a1744be5dca45ce47b64a1a01ddcfce6301b))
+* Turn TypeDoc's Parameters and Returns headings into labels, so search lists each member once ([#29](https://github.com/RasmusKard/rn-cross-platform-docs/issues/29)) ([ea85512](https://github.com/RasmusKard/rn-cross-platform-docs/commit/ea85512d7c215e85b6cd3346d4832778d208a528))
+* Wrap a sidebar label that is one long identifier, instead of cutting it off ([#28](https://github.com/RasmusKard/rn-cross-platform-docs/issues/28)) ([83932c0](https://github.com/RasmusKard/rn-cross-platform-docs/commit/83932c0ace17a3d4568df0f0d60778b687edbedb))
+
 ## [1.1.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.0.0...v1.1.0) (2026-11-03)
 
 
