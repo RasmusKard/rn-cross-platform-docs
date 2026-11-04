@@ -2,11 +2,18 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { afterEach, test } from 'node:test';
 import { repoUrl, writeProject } from '../src/build.ts';
+
+const dirs: string[] = [];
+// a file-level after() can run before later top-level awaited tests, so clean up after each
+afterEach(() => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
 
 function library(): string {
   const root = mkdtempSync(join(tmpdir(), 'lib-'));
+  dirs.push(root);
   writeFileSync(join(root, 'package.json'), '{"name":"my-lib"}');
   writeFileSync(join(root, 'README.md'), '# my-lib\n\n[Guide](guides/a.md)');
   mkdirSync(join(root, 'guides'));

@@ -1,12 +1,19 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { afterEach, test } from 'node:test';
 import { platformNav, typescriptNav } from '../src/nav.ts';
+
+const dirs: string[] = [];
+// a file-level after() can run before later top-level awaited tests, so clean up after each
+afterEach(() => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
 
 function tree(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), 'nav-'));
+  dirs.push(dir);
   for (const [path, body] of Object.entries(files)) {
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     writeFileSync(join(dir, path), body);
