@@ -82,8 +82,9 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
     await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(await treeNav(join(docs, p), p)));
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
-  // the theme sets h5 in capitals, which TypeDoc uses for parameter names; Dokka's tables of parameters, entries and
-  // exceptions have empty header rows; its break-word splits identifiers in table cells, where a wide table scrolls
+  // the theme sets h5 in capitals, which TypeDoc uses for parameter names, and its break-word splits identifiers in
+  // table cells, where a wide table scrolls instead; Dokka's tables of parameters, entries and exceptions have empty
+  // header rows
   await writeFile(
     join(docs, 'extra.css'),
     '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
