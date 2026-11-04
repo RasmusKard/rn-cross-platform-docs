@@ -6,7 +6,7 @@ export interface Library {
   root: string;
   /** Platforms with sources, in `allPlatforms` order. */
   platforms: Platform[];
-  /** Podspec file name without `.podspec`, used as the Xcode scheme; set when `swift` is detected. */
+  /** Podspec file name without `.podspec`, used as the Xcode scheme; set when `swift` is detected with one podspec. */
   podName?: string;
 }
 

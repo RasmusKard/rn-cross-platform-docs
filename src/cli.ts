@@ -52,7 +52,8 @@ if (args.values.help || args.positionals.length === 0) {
 } else if (!['generate', 'detect'].includes(args.positionals[0]) || args.positionals.length > 1) {
   usageError(`Unknown command: ${args.positionals.join(' ')}`);
 } else if (args.positionals[0] === 'detect') {
-  const library = await detectLibrary(process.cwd()).catch(fail);
+  // generates nothing: swift with several podspecs stays listed, so generating it fails instead of being skipped
+  const library = await detectLibrary(process.cwd(), []).catch(fail);
   if (library) process.stdout.write(`${library.platforms.join('\n')}\n`);
 } else {
   const platforms = args.values.platforms?.split(',').map((p) => p.trim()) as Platform[] | undefined;

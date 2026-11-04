@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { test } from 'node:test';
+import { repo } from './repo.ts';
 
 const cli = new URL('../src/cli.ts', import.meta.url).pathname;
 
@@ -36,4 +37,20 @@ await test('detect exits 1 without a native module', () => {
   });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /No React Native native module/);
+});
+
+await test('detect lists swift when it has several podspecs, leaving the error to generating it', async (t) => {
+  const cwd = await repo(t, {
+    'TwoPods.podspec': '',
+    'ios/TwoPods.podspec': '',
+    'ios/A.swift': '',
+    'android/src/A.kt': '',
+  });
+  assert.equal(
+    execFileSync(process.execPath, [cli, 'detect'], { cwd, encoding: 'utf8' }),
+    'typescript\nkotlin\nswift\n',
+  );
+  const r = spawnSync(process.execPath, [cli, 'generate', '--platforms', 'swift'], { cwd, encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /Expected one podspec in .*, found 2: TwoPods\.podspec, ios\/TwoPods\.podspec/);
 });

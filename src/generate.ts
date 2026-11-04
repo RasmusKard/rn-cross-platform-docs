@@ -25,7 +25,7 @@ export interface GenerateOptions {
 
 export async function generate(root: string, options: GenerateOptions): Promise<void> {
   const { out, platforms } = options;
-  const library = await detectLibrary(root);
+  const library = await detectLibrary(root, platforms);
   const build: Build = {
     gradleDir: resolve(library.root, options.gradleProject ?? 'example/android'),
     xcodeWorkspace: resolve(library.root, options.xcodeWorkspace ?? 'example/ios'),
