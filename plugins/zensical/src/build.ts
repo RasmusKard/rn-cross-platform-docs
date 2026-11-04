@@ -2,10 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, statSync, type Stats } from 'node:fs';
 import { cp, glob, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { platformNav, typescriptNav, type NavItem, type TypeDocNavItem } from './nav.ts';
 
-/** Zensical version and the date its unpinned Python dependencies are resolved at (`uvx --exclude-newer`). */
-const zensical = { version: '0.0.74', resolvedAt: '2026-10-31T00:00:00Z' };
+/** The package root, whose pyproject.toml and uv.lock pin Zensical and its dependencies by version and hash. */
+const zensicalProject = fileURLToPath(new URL('..', import.meta.url));
 
 const platforms = [
   ['typescript', 'TypeScript'],
@@ -25,15 +26,17 @@ export interface BuildOptions {
 /** Writes the Zensical project for the library at `root` to `options.out` and builds it. */
 export async function build(root: string, options: BuildOptions): Promise<void> {
   const out = await writeProject(root, options);
-  const args = ['--exclude-newer', zensical.resolvedAt, `zensical@${zensical.version}`, 'build'];
-  const result = spawnSync('uvx', args, { cwd: out, stdio: 'inherit' });
+  // --frozen installs what uv.lock lists, checking its hashes; --isolated makes that environment in uv's cache, where
+  // a plain `uv run` would make a .venv in this package, in node_modules
+  const args = ['run', '--frozen', '--isolated', '--project', zensicalProject, 'zensical', 'build'];
+  const result = spawnSync('uv', args, { cwd: out, stdio: 'inherit' });
   if ((result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
-    throw new Error('`uvx` not found: uv is not on PATH; see https://docs.astral.sh/uv/getting-started/installation/');
+    throw new Error('`uv` not found: uv is not on PATH; see https://docs.astral.sh/uv/getting-started/installation/');
   }
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(
-      `\`${['uvx', ...args].join(' ')}\` in ${out} failed with ${result.signal ?? `exit code ${result.status}`}`,
+      `\`${['uv', ...args].join(' ')}\` in ${out} failed with ${result.signal ?? `exit code ${result.status}`}`,
     );
   }
 }

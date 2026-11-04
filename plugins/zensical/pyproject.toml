@@ -1,0 +1,11 @@
+# Zensical and its Python dependencies, locked with hashes in uv.lock, which src/build.ts runs Zensical from. Not a
+# package: it's never built or published, so the version stays 0.
+[project]
+name = "rn-cross-platform-docs-zensical"
+version = "0"
+requires-python = ">=3.11"
+dependencies = ["zensical==0.0.74"]
+
+# a [tool.uv] table ends uv's search for settings here, so a uv.toml or pyproject.toml above node_modules doesn't apply
+[tool.uv]
+package = false

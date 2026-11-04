@@ -82,8 +82,8 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           version: 0.13.5
-          # the plugin pins Zensical, so its version decides when the uv cache is stale
-          cache-dependency-glob: ${{ inputs.working-directory }}/node_modules/@rn-cross-platform-docs/zensical/package.json
+          # Zensical runs from the plugin's uv.lock, so the lock decides when the uv cache is stale
+          cache-dependency-glob: ${{ inputs.working-directory }}/node_modules/@rn-cross-platform-docs/zensical/uv.lock
       - uses: actions/download-artifact@v8.0.2
         with:
           pattern: api-reference-*

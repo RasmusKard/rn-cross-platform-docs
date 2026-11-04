@@ -6,7 +6,7 @@ const help = `Usage: rn-cross-platform-docs-zensical build [options]
 
 Builds a Zensical docs site for the React Native library in the current directory from its
 README.md (home page), guides/ and the Markdown API reference made by rn-cross-platform-docs.
-Needs uv (https://docs.astral.sh/uv/) on PATH; Zensical runs through uvx.
+Needs uv (https://docs.astral.sh/uv/) on PATH; it runs Zensical as this package's uv.lock pins it.
 
 Options:
   --reference <dir>   reference root holding typescript/, kotlin/, swift/ (default: docs/reference)

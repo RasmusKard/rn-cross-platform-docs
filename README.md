@@ -84,6 +84,8 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 
 ### Zensical site
 
+- The plugin's `uv.lock` pins Zensical and its Python dependencies, with hashes. uv installs them in its cache, from
+  the URLs in the lock (files.pythonhosted.org), not from an index you configure.
 - Guides are listed in the order the README links them; `guides/.nav.yml` overrides that. Site name, description and
   repo link come from `package.json`.
 - Images in the README and guides from elsewhere in the library, including `<picture>` and `srcset` ones, show on the
