@@ -264,3 +264,11 @@ await test('refuses a reference dir inside the output dir', async () => {
     /--reference must be outside --out/,
   );
 });
+
+await test('wraps a sidebar label that is one long identifier', async () => {
+  const out = await writeProject(library(), { reference: 'docs/reference', out: 'docs-site' });
+  assert.match(
+    readFileSync(join(out, 'docs/extra.css'), 'utf8'),
+    /^\.md-nav--primary \.md-ellipsis \{ overflow-wrap: anywhere; \}$/m,
+  );
+});
