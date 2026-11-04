@@ -140,21 +140,6 @@ await test('Swift: sections titled by index.md H1, documentation/<module> level 
   });
 });
 
-await test('Swift: a type with a member named index keeps its page as the sibling <type>.md', async () => {
-  const dir = tree({
-    'documentation/m/index.md': '# M',
-    'documentation/m/t.md': '# T',
-    'documentation/m/t/index.md': '# index',
-    'documentation/m/t/f().md': '# f()',
-  });
-  assert.deepEqual(await platformNav(dir), {
-    nav: [
-      'documentation/m/index.md',
-      { T: ['documentation/m/t.md', 'documentation/m/t/index.md', 'documentation/m/t/f().md'] },
-    ],
-  });
-});
-
 await test('a page is kept next to a file of its name without .md', async () => {
   assert.deepEqual(await platformNav(tree({ foo: '', 'foo.md': '# Foo' })), { nav: ['foo.md'] });
 });

@@ -17,17 +17,26 @@ export async function exportArchive(archive: string, module: string, out: string
   const manifest = `${module}-markdown-manifest.json`;
   const json = await readFile(join(archive, manifest), 'utf8');
   const { documents } = JSON.parse(json) as { documents: { identifier: string }[] };
-  const files = pageFiles(documents.map((d) => d.identifier));
   // files only: DocC makes an empty `images/<bundle-id>/` when the repo has no catalog
   for await (const f of glob('images/**', { cwd: archive, withFileTypes: true })) {
     if (!f.isFile()) continue;
     const image = posix.relative(archive, join(f.parentPath, f.name));
     await cp(join(archive, image), join(out, image));
   }
-  for await (const page of glob('**/*.md', { cwd: join(archive, 'data') })) {
-    const id = `/${page.slice(0, -3)}`; // the page's path without .md, as a DocC identifier
-    const file = files.get(id) ?? page;
-    let md = rewriteLinks(await readFile(join(archive, 'data', page), 'utf8'), file, files);
+  const data = join(archive, 'data');
+  // DocC names a page's file after its identifier, unless it shortens a long name with a hash
+  const named = new Map(documents.map(({ identifier: id }) => [`${fileSafe(id.toLowerCase()).slice(1)}.md`, id]));
+  const pages = new Map<string, { page: string; md: string }>(); // by identifier, lowercased
+  for await (const page of glob('**/*.md', { cwd: data })) {
+    const md = await readFile(join(data, page), 'utf8');
+    // without metadata, a page DocC shortened keeps its file's name, and a link to it only its text
+    const id = metadataIdentifier(md) ?? named.get(page) ?? `/${page.slice(0, -'.md'.length)}`;
+    pages.set(id.toLowerCase(), { page, md });
+  }
+  const files = pageFiles([...pages.keys()], (id) => `/${pages.get(id)!.page.slice(0, -'.md'.length)}`);
+  for (const [id, page] of pages) {
+    const file = files.get(id)!;
+    let md = rewriteLinks(page.md, file, files);
     // DocC leaves `_` unescaped in titles, so ask(_:_:) would render as ask(<em>:</em>:)
     md = md.replace(/^# .*/m, (h) => h.replace(/_/g, '\\_'));
     await mkdir(dirname(join(out, file)), { recursive: true });
@@ -36,15 +45,36 @@ export async function exportArchive(archive: string, module: string, out: string
 }
 
 /**
- * Maps each page identifier, lowercased, to its file in the tree: `<id>/index.md` for a page with child pages, else
- * `<id>.md`.
+ * Maps each page identifier, lowercased, to its file in the tree, named after `path(id)`, the page's file in DocC's
+ * `data/` without `.md`: `<path>/index.md` for a page with child pages, else `<path>.md`, or `<parent>/--index--.md` if
+ * it is named `index`, as Dokka names it. `?` becomes `'`, so that no page has a URL with a query. By default, `path`
+ * puts a `'` before a name starting with `.`, as DocC names a file, so that no page is a hidden file.
  */
-export function pageFiles(identifiers: string[]): Map<string, string> {
-  const ids = new Set(identifiers.map((i) => i.toLowerCase()));
-  const parents = new Set([...ids].map((i) => i.slice(0, i.lastIndexOf('/'))));
-  // a member named `index` keeps its parent at `<id>.md`
-  const hasIndexPage = (id: string) => parents.has(id) && !ids.has(`${id}/index`);
-  return new Map([...ids].map((id) => [id, `${id.slice(1)}${hasIndexPage(id) ? '/index' : ''}.md`]));
+export function pageFiles(identifiers: string[], path: (id: string) => string = fileSafe): Map<string, string> {
+  const paths = new Map(identifiers.map((i) => [i.toLowerCase(), path(i.toLowerCase())]));
+  const parents = new Set([...paths.values()].map((p) => p.slice(0, p.lastIndexOf('/'))));
+  // `index.md` is its parent's page; a Swift name can't hold `-`, so no other page is named `--index--`
+  const file = (p: string) => (parents.has(p) ? `${p}/index` : p.replace(/\/index$/, '/--index--'));
+  // a Swift name can't hold `'` either, and only one starting with `.` can hold a `.`, so the names stay unique
+  return new Map([...paths].map(([id, p]) => [id, `${file(p).replace(/\?/g, "'").slice(1)}.md`]));
+}
+
+// DocC's path for a page's file: a name starting with `.` would be a hidden file
+function fileSafe(path: string): string {
+  return path.replace(/\/\./g, "/'.");
+}
+
+// the identifier in the metadata DocC writes as JSON in a comment at the top of each page
+function metadataIdentifier(md: string): string | undefined {
+  const json = /^<!--\n(\{[\s\S]*?\})\n-->\n/.exec(md)?.[1];
+  try {
+    const { identifier } = JSON.parse(json ?? '{}') as { identifier?: unknown };
+    return typeof identifier === 'string' ? identifier : undefined;
+  } catch (error) {
+    // a page without valid metadata falls back to its file name
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
 }
 
 // DocC writes `[text](/documentation/Module/Type/member(_:))` (balanced parentheses, unescaped) and
@@ -57,8 +87,9 @@ const overloadHash = /-[0-9a-z]{4,6}$/;
 
 /**
  * Makes DocC's links in the page at tree path `page` relative to the tree: a `/documentation/...` link to an identifier
- * in `files` (from {@link pageFiles}) points at its file, one to anything else is replaced by its text, and `images/...`
- * points at the tree root's `images/`. So does an unresolved ``doc://<bundle>/documentation/...`` code span.
+ * in `files` (from {@link pageFiles}) points at its file, and at the heading's lowercase id for a link to a section; one
+ * to anything else is replaced by its text, and `images/...` points at the tree root's `images/`. So does an unresolved
+ * ``doc://<bundle>/documentation/...`` code span.
  */
 export function rewriteLinks(md: string, page: string, files: Map<string, string>): string {
   md = md.replace(unresolvedDocLink, (_uri, id: string) => {
@@ -81,7 +112,18 @@ function relative(page: string, target: string, fragment?: string): string {
   const prefix = path.startsWith('../') ? '' : './'; // keeps a colon from reading as a URL scheme
   // escapes `%`, `<`, `>`, spaces and, which encodeURI leaves alone, `?` and `#` (Swift operators)
   const escaped = encodeURI(path).replace(/[?#]/g, encodeURIComponent);
-  const hash = fragment === undefined ? '' : `#${fragment.replace(/[<>]/g, encodeURIComponent)}`;
-  // angle brackets allow unbalanced parentheses, and must hold the fragment too
+  const hash = fragment === undefined ? '' : `#${headingId(fragment)}`;
+  // angle brackets allow unbalanced parentheses
   return `<${prefix}${escaped}${hash}>`;
+}
+
+// the id the site gives the heading (Python-Markdown's slugify) from DocC's fragment for it, which joins words with `-`
+// but keeps case, accents, emoji and symbols such as `+`
+function headingId(fragment: string): string {
+  return fragment
+    .normalize('NFKD')
+    .replace(/[^\w-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
 }
