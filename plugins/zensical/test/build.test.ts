@@ -155,6 +155,46 @@ await test("titles a Kotlin class's constructors page constructor, not after the
   });
 });
 
+await test("moves a Kotlin function named like a type off the type page's URL, and links to it follow", async () => {
+  const root = library();
+  const pkg = join(root, 'docs/reference/kotlin/lib/p');
+  mkdirSync(join(pkg, '-widget'), { recursive: true });
+  writeFileSync(
+    join(pkg, 'index.md'),
+    '# Package-level declarations\n\n[Widget](-widget/index.md), [Widget](-widget.md)\n',
+  );
+  writeFileSync(
+    join(pkg, '-widget.md'),
+    '# Widget\n\n[androidJvm]\\\nfun [Widget](-widget.md)(): [Widget](-widget/index.md)\n\nMakes a [Widget](-widget.md#x).\n',
+  );
+  // the class's constructors page is named like the function too
+  writeFileSync(
+    join(pkg, '-widget/index.md'),
+    '# Widget\n\n[androidJvm]\\\nclass Widget\n\nSee [the function](../-widget.md), not [the constructor](-widget.md).\n',
+  );
+  writeFileSync(join(pkg, '-widget/-widget.md'), '# Widget\n\n[androidJvm]\\\nconstructor()\n');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const p = join(out, 'docs/kotlin/lib/p');
+  const code = '<p class="kotlin-signature" markdown="span">';
+  assert.ok(!existsSync(join(p, '-widget.md')));
+  assert.equal(
+    readFileSync(join(p, '-widget.fun.md'), 'utf8'),
+    `# Widget\n\n${code}fun Widget(): [Widget](-widget/index.md)</p>\n\nMakes a [Widget](-widget.fun.md#x).\n`,
+  );
+  assert.equal(
+    readFileSync(join(p, 'index.md'), 'utf8'),
+    '# p\n\n[Widget](-widget/index.md), [Widget](-widget.fun.md)\n',
+  );
+  assert.equal(
+    readFileSync(join(p, '-widget/index.md'), 'utf8'),
+    `# Widget\n\n${code}class Widget</p>\n\nSee [the function](../-widget.fun.md), not [the constructor](-widget.md).\n`,
+  );
+  assert.equal(readFileSync(join(p, '-widget/-widget.md'), 'utf8'), `# constructor\n\n${code}constructor()</p>\n`);
+  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/kotlin/.nav.yml'), 'utf8')), {
+    nav: ['lib/p/index.md', { Widget: ['lib/p/-widget/index.md', 'lib/p/-widget/-widget.md'] }, 'lib/p/-widget.fun.md'],
+  });
+});
+
 await test('keeps the title of a Kotlin function named like its package', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib/greet'), { recursive: true });
