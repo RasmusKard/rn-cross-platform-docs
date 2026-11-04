@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { detectLibrary } from './detect.ts';
+import { removeOnInterrupt } from './interrupt.ts';
 import { generateKotlin } from './kotlin.ts';
 import type { Build, Generator, Platform } from './library.ts';
 import { generateSwift } from './swift.ts';
@@ -37,12 +38,16 @@ export async function generate(root: string, options: GenerateOptions): Promise<
     await mkdir(dirname(dest), { recursive: true });
     // a failing generator leaves the previous tree in place
     const staging = await mkdtemp(join(dirname(dest), `.${platform}-`));
+    // a signal ends the process without running the finally
+    const stopWatching = removeOnInterrupt(staging);
     try {
       await generators[platform](library, staging, build);
       await rm(dest, { recursive: true, force: true });
       await rename(staging, dest);
     } finally {
       await rm(staging, { recursive: true, force: true });
+      // after the rm: Ctrl-C also ends the build, whose failure can reach here before the signal's listener runs
+      stopWatching();
     }
   }
 }

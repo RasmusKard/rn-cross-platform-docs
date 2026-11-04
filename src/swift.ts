@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { exportArchive, findArchive } from './docc.ts';
 import { run } from './exec.ts';
+import { removeOnInterrupt } from './interrupt.ts';
 import type { Generator } from './library.ts';
 
 const doccFlags = [
@@ -17,6 +18,7 @@ export const generateSwift: Generator = async (library, out, { xcodeWorkspace })
   const podName = library.podName!;
   const workspace = await findWorkspace(xcodeWorkspace);
   const derivedDataDir = await mkdtemp(join(tmpdir(), 'rn-cross-platform-docs-dd-'));
+  const stopWatching = removeOnInterrupt(derivedDataDir);
   try {
     // oxfmt-ignore
     await run('xcodebuild', [
@@ -34,6 +36,7 @@ export const generateSwift: Generator = async (library, out, { xcodeWorkspace })
     await exportArchive(archive, basename(archive, '.doccarchive'), out);
   } finally {
     await rm(derivedDataDir, { recursive: true, force: true });
+    stopWatching();
   }
 };
 
