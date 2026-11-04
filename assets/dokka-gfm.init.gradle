@@ -43,6 +43,9 @@ gradle.beforeProject { p ->
     p.extensions.getByName('dokka').dokkaSourceSets.matching { it.name == 'release' }.configureEach { it.suppress.set(true) }
     // Dokka's Markdown links inherited members (an enum entry's name and ordinal) to anchors it doesn't write
     p.extensions.getByName('dokka').dokkaPublications.configureEach { it.suppressInheritedMembers.set(true) }
+    // the library's module and package documentation
+    def moduleDoc = new File(targetDir, 'Module.md')
+    if (moduleDoc.exists()) p.extensions.getByName('dokka').dokkaSourceSets.configureEach { it.includes.from(moduleDoc) }
     p.tasks.matching { it.name.startsWith('dokkaGenerate') }.configureEach {
       // Dokka doesn't depend on codegen, so without preBuild the generated spec supertype is an unresolved ERROR CLASS
       it.dependsOn(p.tasks.matching { it.name == 'preBuild' })

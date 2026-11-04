@@ -23,6 +23,8 @@ Pod::Spec.new do |s|
   # Swift/Objective-C compatibility
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
+    # the documentation catalog, which CocoaPods can't add as a source
+    'OTHER_DOCC_FLAGS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/ExpoGreeter.docc"',
   }
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"

@@ -25,7 +25,8 @@ export const generateSwift: Generator = async (library, out, { xcodeWorkspace })
       '-scheme', podName,
       '-destination', 'generic/platform=iOS Simulator',
       '-derivedDataPath', derivedDataDir,
-      `OTHER_DOCC_FLAGS=${doccFlags}`,
+      // $(inherited) keeps a pod's own flags, such as its documentation catalog
+      `OTHER_DOCC_FLAGS=$(inherited) ${doccFlags}`,
       // drops members that protocol conformances copy onto each type (Equatable's !=, Record's decode(_:in:))
       'OTHER_SWIFT_FLAGS=$(inherited) -symbol-graph-skip-synthesized-members',
     ], dirname(workspace));
