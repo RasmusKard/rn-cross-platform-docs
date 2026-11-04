@@ -41,8 +41,8 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
 /**
  * Writes `zensical.toml` and `docs/` (README.md, guides/, one tree per platform, `.nav.yml` files) to `options.out`.
  * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), Kotlin pages lose
- * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, and unlabeled code blocks in
- * Swift pages are labeled `swift`.
+ * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
+ * Swift pages are labeled `swift`, and TypeScript pages' Parameters and Returns headings become bold labels.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -116,13 +116,17 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // before the H1: they repeat the site's breadcrumbs, and Zensical's search gives the text before an H1 its own entry,
 // listing each page twice. Dokka titles every package page "Package-level declarations"; its folder is named after the
 // package. Dokka marks each declaration and parameter table with its source set, androidJvm, the only one there is.
-// DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting.
+// DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
+// Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
+// is found under the member.
 async function tidyPages(dir: string, platform: string): Promise<void> {
   for await (const page of glob('**/*.md', { cwd: dir })) {
     const md = await readFile(join(dir, page), 'utf8');
     const pkg = basename(dirname(page));
     let tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
     if (platform === 'kotlin') tidy = tidy.replace(sourceSetHint, '');
+    if (platform === 'typescript')
+      tidy = tidy.replace(typedocLabel, (m, label?: string) => (label ? `**${label}**` : m));
     if (platform === 'swift')
       tidy = tidy.replace(codeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
     await writeFile(join(dir, page), tidy);
@@ -130,6 +134,8 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
 }
 
 const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
+// a code block, so a heading in an example stays, or one of TypeDoc's labels
+const typedocLabel = /^```[\s\S]*?^```$|^#{2,6} (Parameters|Returns)$/gm;
 const sourceSetHint = /^\[androidJvm\]\\\n|\[androidJvm\]<br>|^androidJvm\n\n(?=\|)/gm;
 
 // keeps front matter; a page whose first `# ` line follows a code fence (no H1) stays whole
@@ -237,7 +243,7 @@ def_list = {}
 footnotes = {}
 md_in_html = {}
 toc.permalink = true
-# member headings only; TypeDoc's Parameters/Returns headings under each member would crowd the page TOC
+# member headings only; TypeDoc's Type Parameters, Example and See headings under each member would crowd the page TOC
 toc.toc_depth = 3
 pymdownx.arithmatex.generic = true
 pymdownx.betterem = {}

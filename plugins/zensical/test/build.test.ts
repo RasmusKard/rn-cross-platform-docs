@@ -272,3 +272,19 @@ await test('wraps a sidebar label that is one long identifier', async () => {
     /^\.md-nav--primary \.md-ellipsis \{ overflow-wrap: anywhere; \}$/m,
   );
 });
+
+await test("turns TypeDoc's Parameters and Returns headings into bold labels, outside code blocks", async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript'));
+  const page = '# f()\n\n## Parameters\n\n| a | b |\n\n#### Returns\n\n`x`\n\n```md\n## Returns\n```\n';
+  writeFileSync(join(root, 'docs/reference/typescript/f.md'), page);
+  writeFileSync(join(root, 'docs/reference/kotlin/index.md'), '# f\n\n#### Parameters\n');
+  writeFileSync(join(root, 'guides/a.md'), '# A\n\n## Returns\n');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/f.md'), 'utf8'),
+    '# f()\n\n**Parameters**\n\n| a | b |\n\n**Returns**\n\n`x`\n\n```md\n## Returns\n```\n',
+  );
+  assert.equal(readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'), '# f\n\n#### Parameters\n');
+  assert.equal(readFileSync(join(out, 'docs/guides/a.md'), 'utf8'), '# A\n\n## Returns\n');
+});
