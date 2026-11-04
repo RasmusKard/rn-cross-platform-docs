@@ -67,12 +67,17 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 ## Good to know
 
 - Swift docs build the Xcode scheme named after the podspec file, in `--xcode-workspace`.
+- A DocC catalog's landing article, such as one that says who the Swift API is for, needs the pod to pass the catalog
+  to DocC, since CocoaPods doesn't add a `.docc` folder: see
+  [ExpoGreeter.podspec](examples/expo-greeter/ios/ExpoGreeter.podspec).
+- `android/Module.md`, if there is one, is Dokka's module and package documentation. For a library with one package,
+  the site leaves out Dokka's root page, so only the `# Package` section shows there.
 - TypeDoc runs on your own `typedoc.json`; without one, the entry point is `src/index.ts(x)` and no README page is made.
 - The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
   from your TypeDoc config.
 - Swift file names contain `:` and `!`, so Windows can't check out a committed Swift tree.
 - DocC in Xcode 27 (Swift 6.4) writes no Topics in its Markdown, so the Swift landing page and type pages don't list
-  their members; the Zensical site's sidebar still does.
+  their members, except the Topics a catalog article writes itself; the Zensical site's sidebar still lists them.
   [swift-docc#1625](https://github.com/swiftlang/swift-docc/pull/1625) fixes it in a later release.
 - Kotlin pages list only the members a class declares or overrides. Inherited ones, from Android and React Native base
   classes too, would otherwise fill the page with links to anchors Dokka's Markdown doesn't write.
