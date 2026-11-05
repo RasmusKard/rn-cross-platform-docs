@@ -1,4 +1,5 @@
 // The only module that rewrites a doc generator's Markdown; TypeDoc's and Dokka's Markdown is kept as written.
+import { existsSync } from 'node:fs';
 import { cp, glob, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 
@@ -11,7 +12,8 @@ export async function findArchive(dir: string): Promise<string> {
 
 /**
  * Writes the archive of Swift module `module` (its Markdown pages and images) to `out`, with symbol links and image paths
- * made relative. A page with child pages moves to `<page>/index.md`, which site generators use as the section's page.
+ * made relative and the types in each declaration linked to their pages. A page with child pages moves to
+ * `<page>/index.md`, which site generators use as the section's page.
  */
 export async function exportArchive(archive: string, module: string, out: string): Promise<void> {
   const manifest = `${module}-markdown-manifest.json`;
@@ -34,9 +36,13 @@ export async function exportArchive(archive: string, module: string, out: string
     pages.set(id.toLowerCase(), { page, md });
   }
   const files = pageFiles([...pages.keys()], (id) => `/${pages.get(id)!.page.slice(0, -'.md'.length)}`);
-  for (const [id, page] of pages) {
+  for (const [id, { page, md: source }] of pages) {
     const file = files.get(id)!;
-    let md = rewriteLinks(page.md, file, files);
+    let md = rewriteLinks(source, file, files);
+    // DocC writes each page's render JSON next to its Markdown
+    const json = join(data, `${page.slice(0, -'.md'.length)}.json`);
+    if (existsSync(json))
+      md = linkDeclarations(md, file, JSON.parse(await readFile(json, 'utf8')) as RenderNode, files);
     // DocC leaves `_` unescaped in titles, so ask(_:_:) would render as ask(<em>:</em>:)
     md = md.replace(/^# .*/m, (h) => h.replace(/_/g, '\\_'));
     await mkdir(dirname(join(out, file)), { recursive: true });
@@ -107,14 +113,69 @@ export function rewriteLinks(md: string, page: string, files: Map<string, string
   });
 }
 
+/** The part of a DocC render node (a page's render JSON) that {@link linkDeclarations} reads. */
+export interface RenderNode {
+  primaryContentSections?: {
+    kind?: string;
+    // a token that names a symbol DocC knows has its `doc://<bundle-id>/documentation/...` URL as `identifier`
+    declarations?: { tokens?: { text: string; identifier?: string }[] }[];
+  }[];
+}
+
+/**
+ * Links the types in the declarations of the page at tree path `page`. DocC writes each declaration as a code block,
+ * which can't hold links, and its tokens, with the symbol each names, in the page's render JSON `node`. A code block
+ * spelling a declaration that names a page in `files` (from {@link pageFiles}), other than `page`, becomes an HTML code
+ * block linking those tokens, which GitHub and the site still show as code; any other code block stays as written.
+ */
+export function linkDeclarations(md: string, page: string, node: RenderNode, files: Map<string, string>): string {
+  const linked = new Map<string, string>();
+  for (const section of node.primaryContentSections ?? []) {
+    if (section.kind !== 'declarations') continue;
+    for (const { tokens = [] } of section.declarations ?? []) {
+      let links = 0;
+      const html = tokens.map(({ text, identifier }) => {
+        const file = files.get(docPath(identifier)?.toLowerCase() ?? '');
+        if (!file || file === page) return escapeHtml(text);
+        links++;
+        return `<a href="${escapeHtml(href(page, file))}">${escapeHtml(text)}</a>`;
+      });
+      if (links) linked.set(tokens.map((t) => t.text).join(''), `<pre><code>${html.join('')}</code></pre>`);
+    }
+  }
+  if (!linked.size) return md;
+  // DocC's declaration has no language; matching every fence keeps a labeled block's closing fence from opening one
+  return md.replace(/^```(.*)\n([\s\S]*?)\n```$/gm, (block, lang: string, code: string) =>
+    lang ? block : (linked.get(code) ?? block),
+  );
+}
+
+// the page path of a `doc://<bundle-id>/documentation/...` URL, which DocC percent-encodes
+function docPath(url: string | undefined): string | undefined {
+  const path = url && /^doc:\/\/[^/]+(\/documentation\/[^#]*)/.exec(url)?.[1];
+  try {
+    return path && decodeURIComponent(path);
+  } catch {
+    return undefined;
+  }
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// angle brackets allow unbalanced parentheses
 function relative(page: string, target: string, fragment?: string): string {
+  return `<${href(page, target, fragment)}>`;
+}
+
+function href(page: string, target: string, fragment?: string): string {
   const path = posix.relative(posix.dirname(page), target);
   const prefix = path.startsWith('../') ? '' : './'; // keeps a colon from reading as a URL scheme
-  // escapes `%`, `<`, `>`, spaces and, which encodeURI leaves alone, `?` and `#` (Swift operators)
+  // escapes `%`, `<`, `>`, `"`, spaces and, which encodeURI leaves alone, `?` and `#`, which would end the path
   const escaped = encodeURI(path).replace(/[?#]/g, encodeURIComponent);
   const hash = fragment === undefined ? '' : `#${headingId(fragment)}`;
-  // angle brackets allow unbalanced parentheses
-  return `<${prefix}${escaped}${hash}>`;
+  return `${prefix}${escaped}${hash}`;
 }
 
 // the id the site gives the heading (Python-Markdown's slugify) from DocC's fragment for it, which joins words with `-`

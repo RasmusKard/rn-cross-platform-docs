@@ -4,7 +4,7 @@ import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/pro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { exportArchive, findArchive, pageFiles, rewriteLinks } from '../src/docc.ts';
+import { exportArchive, findArchive, linkDeclarations, pageFiles, rewriteLinks } from '../src/docc.ts';
 import { brokenLinks } from './links.ts';
 
 const archive = new URL('fixtures/Fixture.doccarchive', import.meta.url).pathname;
@@ -33,11 +33,32 @@ It is a \`BaseModule\`.
 
 In [\`Fixture\`](<../index.md>), [\`run(_:)\`](<./run(_:)-8upfu.md>), [\`??(_:_:)\`](<./''(_:_:).md>) and [\`...(_:_:)\`](<./'...(_:_:).md>).`,
   );
-  assert.match(
+  assert.equal(
     await readFile(join(out, "documentation/fixture/thing/'...(_:_:).md"), 'utf8'),
-    /^# \.\.\.\(\\_:\\_:\)$/m,
+    `# ...(\\_:\\_:)
+
+<pre><code>static func ... (minimum: <a href="./index.md">Thing</a>, maximum: <a href="./index.md">Thing</a>) -&gt; ClosedRange&lt;<a href="./index.md">Thing</a>&gt;</code></pre>`,
   );
-  assert.match(await readFile(join(out, 'documentation/fixture/thing/run(_:)-8uxly.md'), 'utf8'), /^# run\(\\_:\)$/m);
+  assert.equal(
+    await readFile(join(out, "documentation/fixture/thing/''(_:_:).md"), 'utf8'),
+    `# ??(\\_:\\_:)
+
+<pre><code>static func ?? (lhs: <a href="./index.md">Thing</a>?, rhs: <a href="./index.md">Thing</a>) -&gt; <a href="./index.md">Thing</a></code></pre>`,
+  );
+  // BaseModule is another module's
+  assert.equal(
+    await readFile(join(out, 'documentation/fixture/thing/run(_:)-8uxly.md'), 'utf8'),
+    `# run(\\_:)
+
+The other [\`run(_:)\`](<./run(_:)-8upfu.md>), back to [\`Thing\`](<./index.md>).
+
+<pre><code>func run(_ module: BaseModule) -&gt; <a href="./index.md">Thing</a></code></pre>`,
+  );
+  // Int has no page
+  assert.equal(
+    await readFile(join(out, 'documentation/fixture/thing/run(_:)-8upfu.md'), 'utf8'),
+    '# run(\\_:)\n\n```\nfunc run(_ n: Int)\n```',
+  );
 });
 
 void test('exportArchive keeps a page without metadata that DocC wrote under another name at its path, unlinked', async (t) => {
@@ -58,7 +79,7 @@ void test('exportArchive keeps a page without metadata that DocC wrote under ano
   assert.ok(existsSync(join(dir, 'out/documentation/fixture/thing/index.md')));
 });
 
-void test('exportArchive keeps the name DocC shortened a page to, and links to it by the identifier in its metadata', async (t) => {
+void test('exportArchive keeps the name DocC shortened a page to, links to it by its metadata, and links its declaration', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'docc-test-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const copy = join(dir, 'Fixture.doccarchive');
@@ -70,7 +91,15 @@ void test('exportArchive keeps the name DocC shortened a page to, and links to i
   const metadata = JSON.stringify({ documentType: 'symbol', identifier: id, title: name }, null, 2);
   await writeFile(
     join(copy, `data/documentation/fixture/thing/${short}.md`),
-    `<!--\n${metadata}\n-->\n\n# ${name}\n\nBack to [\`Thing\`](/documentation/Fixture/Thing).`,
+    `<!--\n${metadata}\n-->\n\n# ${name}\n\nBack to [\`Thing\`](/documentation/Fixture/Thing).\n\n\`\`\`\nfunc configure() -> Thing\n\`\`\``,
+  );
+  const tokens = [
+    { text: 'func configure() -> ' },
+    { text: 'Thing', identifier: 'doc://org.cocoapods.Fixture/documentation/Fixture/Thing' },
+  ];
+  await writeFile(
+    join(copy, `data/documentation/fixture/thing/${short}.json`),
+    JSON.stringify({ primaryContentSections: [{ kind: 'declarations', declarations: [{ tokens }] }] }),
   );
   const manifest = join(copy, 'Fixture-markdown-manifest.json');
   const { documents, ...rest } = JSON.parse(await readFile(manifest, 'utf8')) as { documents: object[] };
@@ -82,14 +111,20 @@ void test('exportArchive keeps the name DocC shortened a page to, and links to i
   assert.deepEqual(await brokenLinks(join(dir, 'out')), []);
   const index = await readFile(join(dir, 'out/documentation/fixture/thing/index.md'), 'utf8');
   assert.ok(index.endsWith(`\nSee [\`${name}\`](<./${short}.md>).`));
-  assert.match(
-    await readFile(join(dir, `out/documentation/fixture/thing/${short}.md`), 'utf8'),
-    /^Back to \[`Thing`\]\(<\.\/index\.md>\)\.$/m,
-  );
+  const page = await readFile(join(dir, `out/documentation/fixture/thing/${short}.md`), 'utf8');
+  assert.match(page, /^Back to \[`Thing`\]\(<\.\/index\.md>\)\.$/m);
+  assert.ok(page.endsWith('\n<pre><code>func configure() -&gt; <a href="./index.md">Thing</a></code></pre>'));
 });
 
-void test('the link check catches DocC links left as written', async () => {
+void test('the link check catches DocC links left as written, and broken links in HTML', async (t) => {
   assert.equal((await brokenLinks(join(archive, 'data'))).length, 14);
+  const dir = await mkdtemp(join(tmpdir(), 'docc-test-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await writeFile(
+    join(dir, 'a&b.md'),
+    '<pre><code><a href="./a&amp;b.md">A</a> <a href="./gone.md">B</a></code></pre>',
+  );
+  assert.deepEqual(await brokenLinks(dir), ['a&b.md -> ./gone.md']);
 });
 
 void test('findArchive returns the one .doccarchive in a directory and rejects any other count', async (t) => {
@@ -182,4 +217,66 @@ void test("pageFiles puts a ' before a name starting with . and in place of ?, s
       ['/documentation/m/t/mode-swift.enum', 'documentation/m/t/mode-swift.enum.md'],
     ]),
   );
+});
+
+void test('linkDeclarations links the tokens that name a page, not the page itself, in the code block spelling them', () => {
+  const pages = pageFiles([
+    '/documentation/M/T',
+    '/documentation/M/T/&&(_:_:)',
+    '/documentation/M/Café',
+    '/documentation/M/T/f(_:)',
+  ]);
+  const t = (text: string, identifier?: string) => ({ text, identifier });
+  const tokens = [
+    t('static func && ('),
+    t('lhs'),
+    t(': '),
+    t('T', 'doc://org.cocoapods.M/documentation/M/T'),
+    t(', '),
+    t('rhs'),
+    t(': '),
+    t('Café', 'doc://org.cocoapods.M/documentation/M/Caf%C3%A9'),
+    t(') -> '),
+    t('Set', 'doc://org.cocoapods.M/s:Sh'),
+    t('<'),
+    t('T', 'doc://org.cocoapods.M/documentation/M/T'),
+    t('>'),
+  ];
+  const node = {
+    primaryContentSections: [
+      { kind: 'content' },
+      {
+        kind: 'declarations',
+        declarations: [
+          { tokens },
+          // DocC after 6.4 writes one code block per platform, after its name, when they differ
+          { tokens: [t('func f(_ t: '), t('T', 'doc://org.cocoapods.M/documentation/M/T'), t(')')] },
+          // only the page itself
+          { tokens: [t('func '), t('g', 'doc://org.cocoapods.M/documentation/M/T/%26%26(_:_:)'), t('()')] },
+        ],
+      },
+    ],
+  };
+  const md = [
+    '# &&(\\_:\\_:)',
+    '```swift\nfunc f(_ t: T)\n```',
+    'iOS:',
+    '```\nstatic func && (lhs: T, rhs: Café) -> Set<T>\n```',
+    'macOS:',
+    '```\nfunc f(_ t: T)\n```',
+    '```\nfunc g()\n```',
+  ].join('\n\n');
+  assert.equal(
+    linkDeclarations(md, 'documentation/m/t/&&(_:_:).md', node, pages),
+    [
+      '# &&(\\_:\\_:)',
+      '```swift\nfunc f(_ t: T)\n```',
+      'iOS:',
+      '<pre><code>static func &amp;&amp; (lhs: <a href="./index.md">T</a>, rhs: <a href="../caf%C3%A9.md">Café</a>) -&gt; Set&lt;<a href="./index.md">T</a>&gt;</code></pre>',
+      'macOS:',
+      '<pre><code>func f(_ t: <a href="./index.md">T</a>)</code></pre>',
+      '```\nfunc g()\n```',
+    ].join('\n\n'),
+  );
+  assert.equal(linkDeclarations(md, 'documentation/m/t/f(_:).md', {}, pages), md);
 });
