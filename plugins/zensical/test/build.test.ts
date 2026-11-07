@@ -303,6 +303,30 @@ await test('orders guides as the README links them, then any rest, and keeps a g
   assert.equal(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8'), 'nav: [c.md]');
 });
 
+await test('orders guides by reference, angle-bracket, percent-encoded and HTML links too, not by links in code', async () => {
+  const root = library();
+  for (const f of ['setup.md', 'Usage Guide.md', 'advanced.md', '100%.md']) {
+    writeFileSync(join(root, 'guides', f), '# x');
+  }
+  writeFileSync(
+    join(root, 'README.md'),
+    '# my-lib\n\n`[A](guides/a.md)`\n\n```md\n[A](guides/a.md)\n```\n\n    [A](guides/a.md)\n    [setup]: guides/a.md\n\n' +
+      '[Setup][setup], [usage guide](<guides/Usage Guide.md>), [advanced](guides/advanced.md), [A][], [All][100]\n\n' +
+      '[setup]: guides/setup.md\n[a]: ./guides/a.md#top\n[100]: guides/100%.md\n[setup]: guides/advanced.md\n',
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const nav = () => JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8'));
+  assert.deepEqual(nav(), { nav: ['setup.md', 'Usage Guide.md', 'advanced.md', 'a.md', '100%.md'] });
+
+  writeFileSync(
+    join(root, 'README.md'),
+    '# my-lib\n\n[Usage](guides/Usage%20Guide.md), <a href="guides/advanced.md">Advanced</a>, [setup], [A](guides/a.md)' +
+      '\n\n[setup]: <guides/setup.md>\n',
+  );
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.deepEqual(nav(), { nav: ['Usage Guide.md', 'advanced.md', 'setup.md', 'a.md', '*'] });
+});
+
 await test('adds no `*` for a guides/ subfolder without Markdown, such as images/', async () => {
   const root = library();
   mkdirSync(join(root, 'guides/images'));

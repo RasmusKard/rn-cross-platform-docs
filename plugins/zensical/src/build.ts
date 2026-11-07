@@ -223,7 +223,16 @@ function dropBeforeH1(md: string): string {
 /** The guides in the order the README links them, then the rest, if there are any. */
 async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }> {
   const readme = await readFile(join(root, 'README.md'), 'utf8');
-  const linked = [...readme.matchAll(/\]\((?:\.\/)?guides\/([^)#\s]+\.md)/g)].map((m) => m[1]);
+  const linked = linkDestinations(readme).flatMap((href) => {
+    const guide = /^(?:\.\/)?guides\/([^?#]+\.md)(?:[?#]|$)/.exec(href)?.[1];
+    if (!guide) return [];
+    try {
+      return [decodeURIComponent(guide)];
+    } catch {
+      // a `%` that is part of the file name, as in 100%.md
+      return [guide];
+    }
+  });
   const nav = [...new Set(linked)].filter((f) => existsSync(join(docs, 'guides', f)));
   // awesome-nav warns about a `*` that matches nothing
   for await (const f of glob('**/*.md', { cwd: join(docs, 'guides') })) {
@@ -277,7 +286,7 @@ async function linkRepoFiles(root: string, docs: string, repository: Package['re
   for (const [from, to] of copies) await cp(from, to, { dereference: true });
 }
 
-// code, whose links stay, or a reference definition, an inline link or image, or an <a>, <img> or <source> tag
+// code, whose links stay, or a reference definition, an inline or reference link or image, or an <a>, <img> or <source>
 const linkOrCode = new RegExp(
   [
     // also indented or quoted, as in a list item or a blockquote; an unclosed one runs to the end of the page
@@ -286,9 +295,13 @@ const linkOrCode = new RegExp(
     /(?<![`\\])(?<span>`+)(?!`)(?:[^\n]|\n(?![ \t\r]*\n))*?(?<!`)\k<span>(?!`)/.source,
     // not a footnote, whose text would pass for a destination
     /^(?<def>[ \t>]*\[(?<label>(?!\^)(?:[^[\]\\]|\\.)+)\]:[ \t]*\n?[ \t]*)(?<defDest><[^<>\n]*>|\S+)/.source,
-    /(?<!\\)(?<bang>!?)\[(?<text>(?:[^[\]\\]|\\[\s\S]|\[(?:[^[\]\\]|\\[\s\S])*\])*)\](?<open>\(\s*)/.source +
-      /(?<dest><[^<>\n]*>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))*)/.source +
-      /(?<close>(?:\s+(?:"[^"]*"|'[^']*'|\([^()]*\)))?\s*\))/.source,
+    /(?<!\\)(?<bang>!?)\[(?<text>(?:[^[\]\\]|\\[\s\S]|\[(?:[^[\]\\]|\\[\s\S])*\])*)\]/.source +
+      '(?:' +
+      /(?<open>\(\s*)(?<dest><[^<>\n]*>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))*)/.source +
+      /(?<close>(?:\s+(?:"[^"]*"|'[^']*'|\([^()]*\)))?\s*\))/.source +
+      '|' +
+      /(?<ref>\[(?:[^[\]\\]|\\.)*\])?/.source +
+      ')',
     /(?<tag><(?:a|img|source)\b[^>]*>)/.source,
   ].join('|'),
   'gim',
@@ -310,6 +323,8 @@ function relinked(md: string, relink: (href: string, image: boolean) => string):
       const g = args.at(-1) as Record<string, string | undefined>;
       // the text of a link can hold an image, such as a badge
       if (g.dest !== undefined) return `${g.bang}[${replace(g.text!)}]${g.open}${relinkIn(g.dest, !!g.bang)}${g.close}`;
+      // a reference link's destination is relinked at its definition
+      if (g.text !== undefined) return `${g.bang}[${replace(g.text)}]${g.ref ?? ''}`;
       if (g.defDest !== undefined) return g.def + relinkIn(g.defDest, imageLabels.has(refLabel(g.label!)));
       if (g.tag !== undefined) return relinkedTag(g.tag, relink);
       return match;
@@ -386,6 +401,35 @@ function splitIndentedCode(md: string): string[] {
     parts[parts.length - 1] += line;
   }
   return parts;
+}
+
+/** The destinations of `md`'s links and images outside code, in order; a reference link's is where it's used. */
+function linkDestinations(md: string): string[] {
+  const matches = (text: string) =>
+    [...text.matchAll(linkOrCode)].map((m) => m.groups as Record<string, string | undefined>);
+  const prose = splitIndentedCode(md).filter((_, i) => i % 2 === 0);
+  const definitions = new Map<string, string>();
+  // backwards, as a label's first definition is the one that counts
+  for (const g of prose.flatMap(matches).reverse()) {
+    if (g.defDest !== undefined) definitions.set(refLabel(g.label!), g.defDest);
+  }
+  const dests: string[] = [];
+  const add = (text: string) => {
+    for (const g of matches(text)) {
+      if (g.tag !== undefined) {
+        relinkedTag(g.tag, (href) => {
+          dests.push(href);
+          return href;
+        });
+      }
+      if (g.text === undefined) continue;
+      add(g.text);
+      const dest = g.dest ?? definitions.get(refLabel(g.ref?.slice(1, -1) || g.text));
+      if (dest !== undefined) dests.push(wrapped.test(dest) ? dest.slice(1, -1) : dest);
+    }
+  };
+  for (const part of prose) add(part);
+  return dests;
 }
 
 function within(dir: string, path: string): boolean {
