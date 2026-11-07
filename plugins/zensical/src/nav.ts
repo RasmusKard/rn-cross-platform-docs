@@ -87,7 +87,8 @@ async function folderNav(root: string, rel: string): Promise<NavItem | undefined
   if (!children.length) return undefined;
   const page = children[0] === `${rel}/index.md` ? children[0] : undefined;
   const md = page ? await readFile(join(root, page), 'utf8') : '';
-  const entries = md.indexOf('\n## Entries\n');
+  // its heading may end in the attribute list that keeps the table out of search
+  const entries = md.search(/^## Entries(?: \{.*\})?$/m);
   if (entries >= 0 && children.includes(`${rel}/value-of.md`)) children = enumNav(children, rel, md.slice(entries));
   if (children.length === 1 && (page || typeof children[0] !== 'string')) return children[0];
   return { [(page && readH1(md)) || basename(rel)]: children };
