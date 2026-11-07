@@ -442,3 +442,180 @@ await test('gives Kotlin enum Entries tables a header, without the repeated entr
       '| [B](-b/index.md) | |\n| [C](-c/index.md) | [C](-c/index.md)(0xFF0000)<br> With an argument. |\n\n## Properties\n',
   );
 });
+
+await test("keeps the README's and guides' images and links to other repo files working", async () => {
+  const root = library();
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'my-lib', repository: 'github:me/my-lib' }));
+  mkdirSync(join(root, '.git'));
+  mkdirSync(join(root, 'assets'));
+  mkdirSync(join(root, 'example'));
+  mkdirSync(join(root, 'guides/images'));
+  for (const f of ['LICENSE', 'CONTRIBUTING.md', 'assets/logo.png', 'assets/shot one.png', 'assets/in-code.png']) {
+    writeFileSync(join(root, f), '');
+  }
+  writeFileSync(join(root, 'guides/images/x.png'), '');
+  const readme = (blob: string, tree: string) =>
+    '# my-lib\n\n<p align="center">\n  <img alt="logo" src="assets/logo.png" width="200">\n</p>\n\n' +
+    '![shot](<assets/shot one.png> "A shot") ![again](assets/shot%20one.png)\n\n' +
+    `[![logo](assets/logo.png)](${blob}LICENSE), [\`CONTRIBUTING\`](${blob}CONTRIBUTING.md#setup "How to help"), ` +
+    `the <a class="x" href='${tree}'>example</a>, [lic], ![ref][logo]\n\n` +
+    '[Guide](guides/a.md), [web](https://x.dev/LICENSE), [mail](mailto:me@x.dev), [anchor](#usage), ' +
+    '[root](/LICENSE), [gone](MISSING.md), `[code](LICENSE)`, `` ![code](assets/in-code.png) ``\n\n' +
+    '1. Install\n\n    ```md\n    [x](LICENSE) ![x](assets/in-code.png)\n    ```\n\n' +
+    `[lic]: <${blob}LICENSE> "The license"\n[logo]: ./assets/logo.png\n`;
+  writeFileSync(join(root, 'README.md'), readme('', './example'));
+  writeFileSync(
+    join(root, 'guides/a.md'),
+    '# A\n\n[Home](../README.md), [license](../LICENSE#mit), ![logo](../assets/logo.png), ![x](images/x.png)\n',
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const web = 'https://github.com/me/my-lib';
+  assert.equal(
+    readFileSync(join(out, 'docs/README.md'), 'utf8'),
+    readme(`${web}/blob/HEAD/`, `${web}/tree/HEAD/example`),
+  );
+  assert.equal(
+    readFileSync(join(out, 'docs/guides/a.md'), 'utf8'),
+    `# A\n\n[Home](../README.md), [license](${web}/blob/HEAD/LICENSE#mit), ![logo](../assets/logo.png), ![x](images/x.png)\n`,
+  );
+  assert.ok(existsSync(join(out, 'docs/assets/logo.png')));
+  assert.ok(existsSync(join(out, 'docs/assets/shot one.png')));
+  assert.ok(!existsSync(join(out, 'docs/assets/in-code.png')), 'images in code stay out');
+});
+
+await test("points a monorepo library's links to its folder in the repository, and images outside it to the repo", async () => {
+  const repo = join(mkdtempSync(join(tmpdir(), 'mono-')), 'repo');
+  const root = join(repo, 'packages/lib');
+  mkdirSync(join(root, 'docs/reference/kotlin'), { recursive: true });
+  mkdirSync(join(repo, 'assets'));
+  for (const f of ['../outside.md', 'LICENSE', 'assets/logo.png', 'packages/lib/LICENSE']) {
+    writeFileSync(join(repo, f), '');
+  }
+  writeFileSync(join(root, 'docs/reference/kotlin/index.md'), '# lib');
+  writeFileSync(
+    join(root, 'README.md'),
+    '# lib\n\n[License](LICENSE), [repo license](../../LICENSE), ![logo](../../assets/logo.png), [out](../../../outside.md)',
+  );
+  const web = 'https://github.com/me/mono';
+  const expected =
+    `# lib\n\n[License](${web}/blob/HEAD/packages/lib/LICENSE), [repo license](${web}/blob/HEAD/LICENSE), ` +
+    `![logo](${web}/raw/HEAD/assets/logo.png), [out](../../../outside.md)`;
+  const pkg = { name: 'lib', repository: { url: `git+${web}.git`, directory: 'packages/lib' } };
+  writeFileSync(join(root, 'package.json'), JSON.stringify(pkg));
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(readFileSync(join(out, 'docs/README.md'), 'utf8'), expected);
+
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'lib', repository: web }));
+  mkdirSync(join(repo, '.git'));
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(readFileSync(join(out, 'docs/README.md'), 'utf8'), expected, 'the repo root from .git');
+});
+
+await test('copies images without a repository URL, and leaves other links as they are', async () => {
+  const root = library();
+  mkdirSync(join(root, 'assets'));
+  writeFileSync(join(root, 'assets/logo.png'), '');
+  writeFileSync(join(root, 'LICENSE'), '');
+  writeFileSync(join(root, 'README.md'), '# my-lib\n\n![logo](assets/logo.png) [License](LICENSE)');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/README.md'), 'utf8'),
+    '# my-lib\n\n![logo](assets/logo.png) [License](LICENSE)',
+  );
+  assert.ok(existsSync(join(out, 'docs/assets/logo.png')));
+});
+
+await test("doesn't copy an image over the site's own files, and links to Bitbucket's src/ pages", async () => {
+  const root = library();
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'my-lib', repository: 'bitbucket:me/my-lib' }));
+  mkdirSync(join(root, '.git'));
+  mkdirSync(join(root, 'kotlin'));
+  writeFileSync(join(root, 'kotlin/shot.png'), '');
+  writeFileSync(join(root, 'LICENSE'), '');
+  writeFileSync(join(root, 'README.md'), '# my-lib\n\n![shot](kotlin/shot.png) [License](LICENSE)');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const web = 'https://bitbucket.org/me/my-lib';
+  assert.equal(
+    readFileSync(join(out, 'docs/README.md'), 'utf8'),
+    `# my-lib\n\n![shot](${web}/raw/HEAD/kotlin/shot.png) [License](${web}/src/HEAD/LICENSE)`,
+  );
+  assert.ok(!existsSync(join(out, 'docs/kotlin/shot.png')));
+  assert.equal(readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'), '# my-lib');
+});
+
+await test("copies the srcset images of an <img> and a <picture>'s <source>, such as a dark-mode logo", async () => {
+  const root = library();
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'my-lib', repository: 'github:me/my-lib' }));
+  mkdirSync(join(root, '.git'));
+  mkdirSync(join(root, 'kotlin'));
+  for (const f of ['docs/light.png', 'docs/dark.png', 'docs/a,b.png', 'docs/wide.png', 'kotlin/dark.png']) {
+    writeFileSync(join(root, f), '');
+  }
+  const readme = (raw: string) =>
+    '# my-lib\n\n<picture>\n  <source media="(prefers-color-scheme: dark)" srcset="docs/dark.png">\n' +
+    '  <img alt="logo" src="docs/light.png">\n</picture>\n\n' +
+    `<IMG SrcSet='docs/a,b.png, ${raw}kotlin/dark.png 2x,docs/wide.png 640w,https://x.dev/c.png 1x' src=docs/light.png>\n`;
+  writeFileSync(join(root, 'README.md'), readme(''));
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(readFileSync(join(out, 'docs/README.md'), 'utf8'), readme('https://github.com/me/my-lib/raw/HEAD/'));
+  for (const f of ['light.png', 'dark.png', 'a,b.png', 'wide.png']) assert.ok(existsSync(join(out, 'docs/docs', f)), f);
+});
+
+await test('leaves links in indented code as they are, but not in text indented under a list item', async () => {
+  const root = library();
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'my-lib', repository: 'github:me/my-lib' }));
+  mkdirSync(join(root, '.git'));
+  mkdirSync(join(root, 'assets'));
+  writeFileSync(join(root, 'LICENSE'), '');
+  writeFileSync(join(root, 'assets/in-code.png'), '');
+  const readme = (blob: string) =>
+    [
+      '# my-lib',
+      '',
+      '    [License](LICENSE) ![x](assets/in-code.png)',
+      '',
+      '\t[License](LICENSE)',
+      '',
+      'Text',
+      `    [License](${blob}LICENSE), the paragraph's`,
+      '',
+      '## Install',
+      '    [License](LICENSE)',
+      '',
+      '1. Step',
+      '',
+      `    [License](${blob}LICENSE), the item's`,
+      '',
+      '    - Nested',
+      '',
+      '          [License](LICENSE)',
+      '',
+      `        [License](${blob}LICENSE), the nested item's`,
+      '',
+      '-   Wide',
+      '',
+      '        [License](LICENSE)',
+      '',
+      `    [License](${blob}LICENSE), the wide item's`,
+      '',
+      'Back at the top.',
+      '',
+      '    ```',
+      '    [License](LICENSE), after a fence that code leaves open',
+      '',
+      `[License](${blob}LICENSE)`,
+      '',
+      '```js',
+      'x',
+      '',
+      '    [License](LICENSE)',
+      '```',
+      '',
+      `[License](${blob}LICENSE)`,
+      '',
+    ].join('\n');
+  writeFileSync(join(root, 'README.md'), readme(''));
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(readFileSync(join(out, 'docs/README.md'), 'utf8'), readme('https://github.com/me/my-lib/blob/HEAD/'));
+  assert.ok(!existsSync(join(out, 'docs/assets/in-code.png')), 'images in code stay out');
+});

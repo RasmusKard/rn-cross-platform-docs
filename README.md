@@ -87,6 +87,9 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 
 - Guides are listed in the order the README links them; `guides/.nav.yml` overrides that. Site name, description and
   repo link come from `package.json`.
+- Images in the README and guides from elsewhere in the library, including `<picture>` and `srcset` ones, show on the
+  site too; their links to other repo files and folders, such as `LICENSE` or `example/`, open them in the repo
+  (`repository` in `package.json`).
 - The TypeScript nav is typedoc-plugin-markdown's navigation, so TypeDoc's grouping, category and sorting options and
   its `navigation` options shape it.
 - Swift deprecation doesn't show: DocC only writes it in a metadata comment.
