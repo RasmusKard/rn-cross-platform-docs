@@ -8,7 +8,7 @@ import { ExpoGreeterModuleEvents, GreetingOptions } from './ExpoGreeter.types';
  * Listen to its events with `useEvent(ExpoGreeter, 'onChange')` from `expo`, or with `addListener`.
  */
 export declare class ExpoGreeterModule extends NativeModule<ExpoGreeterModuleEvents> {
-  /** The name `hello` greets when `options.name` is not given: `"world"`. */
+  /** The name {@linkcode hello} greets when {@linkcode GreetingOptions.name | options.name} is not given: `"world"`. */
   defaultName: string;
 
   /**
@@ -24,7 +24,7 @@ export declare class ExpoGreeterModule extends NativeModule<ExpoGreeterModuleEve
    */
   hello(options?: GreetingOptions): string;
 
-  /** Emits `onChange` with `value`. */
+  /** Emits {@linkcode ExpoGreeterModuleEvents.onChange | onChange} with `value`. */
   setValueAsync(value: string): Promise<void>;
 }
 

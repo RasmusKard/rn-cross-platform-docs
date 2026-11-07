@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
@@ -11,7 +11,9 @@ const root = new URL('fixtures/typescript', import.meta.url).pathname;
 
 void test('writes Markdown from the repo config, keeping its plugins and options', async (t) => {
   const info = t.mock.method(console, 'info', () => {});
-  const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
+  const dir = mkdtempSync(join(tmpdir(), 'ts-gen-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const out = join(dir, 'typescript');
   const library: Library = {
     root,
     platforms: ['typescript'],
@@ -31,7 +33,9 @@ void test('writes Markdown from the repo config, keeping its plugins and options
 void test('falls back to src/index.tsx and no readme when the repo sets neither', async (t) => {
   t.mock.method(console, 'info', () => {});
   const root = new URL('fixtures/typescript-no-config', import.meta.url).pathname;
-  const out = join(mkdtempSync(join(tmpdir(), 'ts-gen-')), 'typescript');
+  const dir = mkdtempSync(join(tmpdir(), 'ts-gen-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const out = join(dir, 'typescript');
 
   await generateTypeScript(
     {

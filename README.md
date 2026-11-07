@@ -72,7 +72,8 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
   [ExpoGreeter.podspec](examples/expo-greeter/ios/ExpoGreeter.podspec).
 - `android/Module.md`, if there is one, is Dokka's module and package documentation. For a library with one package,
   the site leaves out Dokka's root page, so only the `# Package` section shows there.
-- TypeDoc runs on your own `typedoc.json`; without one, the entry point is `src/index.ts(x)` and no README page is made.
+- TypeDoc runs on your own TypeDoc config. Where it doesn't set them, the entry point is `src/index.ts(x)` and `readme`
+  is `none`, so no README page is made.
 - The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
   from your TypeDoc config.
 - Swift file names contain `:` and `!`, so Windows can't check out a committed Swift tree.
@@ -95,7 +96,7 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - The TypeScript nav is typedoc-plugin-markdown's navigation, so TypeDoc's grouping, category and sorting options and
   its `navigation` options shape it.
 - Swift deprecation doesn't show: DocC only writes it in a metadata comment.
-- TypeDoc's Parameters and Returns headings become bold labels, so search lists each member once, not once more for
-  its parameters and its return value.
+- TypeDoc's headings inside a member, such as Parameters, each parameter's name, Returns and Example, become bold
+  labels, so search lists each member once, with its parameters, return value and examples.
 - If TypeDoc also copies the guides (`documents/`), those copies stay out of the nav, but search lists each guide twice
   and their links outside `guides/` break.

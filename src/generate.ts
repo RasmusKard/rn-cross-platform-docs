@@ -4,10 +4,10 @@ import { detectLibrary } from './detect.ts';
 import { generateKotlin } from './kotlin.ts';
 import type { Build, Generator, Platform } from './library.ts';
 import { generateSwift } from './swift.ts';
-import { generateTypeScript } from './typescript.ts';
 
 const generators: Record<Platform, Generator> = {
-  typescript: generateTypeScript,
+  // imported on use: TypeDoc loads the TypeScript compiler, which would slow down every other command and platform
+  typescript: async (library, out) => (await import('./typescript.ts')).generateTypeScript(library, out),
   kotlin: generateKotlin,
   swift: generateSwift,
 };
@@ -25,7 +25,7 @@ export interface GenerateOptions {
 
 export async function generate(root: string, options: GenerateOptions): Promise<void> {
   const { out, platforms } = options;
-  const library = await detectLibrary(root);
+  const library = await detectLibrary(root, platforms);
   const build: Build = {
     gradleDir: resolve(library.root, options.gradleProject ?? 'example/android'),
     xcodeWorkspace: resolve(library.root, options.xcodeWorkspace ?? 'example/ios'),

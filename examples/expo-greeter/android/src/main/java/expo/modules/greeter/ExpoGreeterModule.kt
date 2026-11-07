@@ -38,7 +38,7 @@ class ExpoGreeterModule : Module() {
  * @constructor Creates options with the defaults.
  */
 class GreetingOptions : Record {
-  /** Who to greet. Defaults to [Greeter.DEFAULT_NAME]. */
+  /** Who to greet. Defaults to [Greeter.DEFAULT_NAME], `"world"`. */
   @Field
   var name: String = Greeter.DEFAULT_NAME
 
@@ -49,10 +49,20 @@ class GreetingOptions : Record {
 
 /** Builds greetings, for native code that greets without going through JavaScript. */
 object Greeter {
-  /** The name [greet] uses when [GreetingOptions.name] is not set. */
+  /** The name [greet] uses when [GreetingOptions.name] is not set: `"world"`. */
   const val DEFAULT_NAME = "world"
 
-  /** Returns a greeting such as `Hello, world.` */
+  /**
+   * Returns a greeting such as `"Hello, world."`.
+   *
+   * ```kotlin
+   * val options = GreetingOptions().apply {
+   *   name = "Ada"
+   *   excited = true
+   * }
+   * Greeter.greet(options) // "Hello, Ada!"
+   * ```
+   */
   fun greet(options: GreetingOptions): String =
     "Hello, ${options.name}${if (options.excited) "!" else "."}"
 }

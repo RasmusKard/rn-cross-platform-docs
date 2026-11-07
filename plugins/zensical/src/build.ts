@@ -45,8 +45,9 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Writes `zensical.toml` and `docs/` (README.md, guides/, one tree per platform, `.nav.yml` files) to `options.out`.
  * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), Kotlin pages lose
  * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
- * Swift pages are labeled `swift`, TypeScript pages' Parameters and Returns headings become bold labels, and Kotlin
- * enum Entries tables get a Name and Summary header and lose the repeated entry name.
+ * Swift pages are labeled `swift`, TypeScript pages' headings inside each member, such as Parameters, parameter
+ * names and Example, become labels, TypeScript headings and labels get the ids TypeDoc links to, and Kotlin enum
+ * Entries tables get a Name and Summary header and lose the repeated entry name.
  * Kotlin constructors pages are titled `constructor`, a space follows each line break (`<br>`) in Kotlin table cells,
  * and Kotlin tables of members are left out of search.
  * Kotlin signatures are set as code, without a link to their own page. A Kotlin function named like a type beside it
@@ -94,13 +95,12 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
     await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(await treeNav(join(docs, p), p)));
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
-  // the theme sets h5 in capitals, which TypeDoc uses for parameter names, and its break-word splits identifiers in
-  // table cells, where a wide table scrolls instead; Dokka's tables of parameters and exceptions have empty header
-  // rows; the sidebar cuts off a label that is one long identifier, where it can wrap instead; Kotlin signatures are
-  // paragraphs, to keep their links, set like code blocks
+  // the theme's break-word splits identifiers in table cells, where a wide table scrolls instead; Dokka's tables of
+  // parameters and exceptions have empty header rows; the sidebar cuts off a label that is one long identifier, where
+  // it can wrap instead; Kotlin signatures are paragraphs, to keep their links, set like code blocks
   await writeFile(
     join(docs, 'extra.css'),
-    '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
+    '.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
       '.md-typeset table code { word-break: normal; }\n.md-nav--primary .md-ellipsis { overflow-wrap: anywhere; }\n' +
       '.md-typeset .kotlin-signature { padding: .8em 1.25em; overflow-x: auto; font-family: var(--md-code-font-family); ' +
       'font-size: .85em; color: var(--md-code-fg-color); background-color: var(--md-code-bg-color); border-radius: .4rem; }\n',
@@ -141,8 +141,11 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // Dokka writes a function named like a type beside it (Kotlin's factory-function idiom, a capitalized @Composable) to
 // `<name>.md`, which with directory URLs is served where the type's `<name>/index.md` is.
 // DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
-// Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
-// is found under the member.
+// headings inside a member, such as Parameters, each parameter's name, Returns and Example, would each be a search
+// entry, filing the return value under the last parameter's name; as labels, their text is found under the member.
+// TypeDoc links to an anchor for each name it documents on a page, numbering a repeated one `a-1` among those names
+// alone, which include some that become labels, such as a method's type parameters, but no group heading, such as
+// Properties; Python-Markdown would number every heading instead, `a_1`.
 async function tidyPages(dir: string, platform: string): Promise<void> {
   const namesakes = platform === 'kotlin' ? await typeNamesakes(dir) : new Set<string>();
   for await (const page of glob('**/*.md', { cwd: dir })) {
@@ -162,10 +165,11 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
       tidy = tidy.replace(/^# .+$/m, '# constructor');
     if (namesakes.size)
       tidy = tidy.replace(pageLink, (href) => (namesakes.has(join(dirname(page), href)) ? funPage(href) : href));
-    if (platform === 'typescript')
-      tidy = tidy.replace(typedocLabel, (m, label?: string) => (label ? `**${label}**` : m));
+    if (platform === 'typescript') tidy = typedocLabels(tidy);
     if (platform === 'swift')
-      tidy = tidy.replace(codeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
+      tidy = splitCode(tidy)
+        .map((part, i) => (i % 2 ? part.replace(bareFence, '$&swift') : part))
+        .join('');
     await writeFile(join(dir, page), tidy);
   }
   // after the loop, whose glob could list a moved page again
@@ -185,9 +189,180 @@ async function typeNamesakes(dir: string): Promise<Set<string>> {
 const funPage = (page: string) => `${page.slice(0, -3)}.fun.md`;
 // a link's target, up to its anchor
 const pageLink = /(?<=\]\()[^)#]+/g;
-const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
-// a code block, so a heading in an example stays, or one of TypeDoc's labels
-const typedocLabel = /^```[\s\S]*?^```$|^#{2,6} (Parameters|Returns)$/gm;
+
+/** `md` as prose and the fenced code blocks between, `[prose, code, prose, …, prose]`, by CommonMark's rules. */
+function splitCode(md: string): string[] {
+  const parts = [''];
+  let fence = ''; // the open block's, such as ```` or ~~~
+  for (const line of md.split(/(?<=\n)/)) {
+    const [, run = '', info = ''] = /^ {0,3}(`{3,}|~{3,})(.*)/.exec(line) ?? [];
+    // a backtick in the info string makes the line inline code
+    if (!fence && run && !(run[0] === '`' && info.includes('`'))) {
+      fence = run;
+      parts.push(line);
+    } else if (fence && run.startsWith(fence) && !info.trim()) {
+      fence = '';
+      parts[parts.length - 1] += line;
+      parts.push('');
+    } else parts[parts.length - 1] += line;
+  }
+  if (fence) parts.push('');
+  return parts;
+}
+
+// the opening fence of a code block without a language
+const bareFence = /^ {0,3}(?:`{3,}|~{3,})(?=[ \t]*\n)/;
+// typedoc-plugin-markdown's headings in a member or in the page's own, in English
+const typedocSections = new Set([
+  'Parameters',
+  'Type Parameters',
+  'Returns',
+  'Type Declaration',
+  'Union Members',
+  'Type Literal',
+  'Function',
+  'Call Signature',
+  'Get Signature',
+  'Set Signature',
+  'Index Signature',
+  'Indexable',
+  'Hierarchy',
+  'Extends',
+  'Extended by',
+  'Implements',
+  'Implementation of',
+  'Inherited from',
+  'Overrides',
+  // block tags
+  'Example',
+  'Examples',
+  'Remarks',
+  'See',
+  'Throws',
+  'Deprecated',
+  'Default Value',
+  'Default',
+  'Since',
+]);
+// a heading and the next line that isn't blank, if any
+const typedocHeading = /^(#{2,6}) (.+)$(?=(?:\n+(.*))?)/gm;
+
+/**
+ * `md` with the headings inside each member as labels: TypeDoc's sections, and any heading under one or a member's.
+ * Each heading and label TypeDoc makes an anchor for gets that anchor as its id.
+ */
+function typedocLabels(md: string): string {
+  // the H1's name, as in `# Class: Box\<T\>`, with `()` for signatures, and the declaration under it, if any
+  const [, page = '', call, generic, declaration = ''] =
+    /^# (?:~~)?(?:.*: )?(.+?)(\(\))?((?:\\<|<|&lt;).*?)?(?:~~)?$(?:\n+(.*))?/m.exec(md) ?? [];
+  // without `()`, the page's signatures are those of its type, a type literal TypeDoc names `__type`
+  const signature = call ? page : '__type';
+  // a variable of an object literal type, `object` or `{ … }`, whose members TypeDoc anchors
+  const members = /^> .*\*\*: (?:`object`|\\\{.*\\\})$/.test(declaration);
+  const anchor = typedocAnchors();
+  let member = 7; // headings deeper than this level are inside a member
+  let names = 7; // and deeper than this, in a Parameters or Type Parameters section, are names
+  let typeParams: string | undefined; // in a Type Parameters section TypeDoc anchors, what its anchors start with
+  // by heading level, from the H1's, what the anchors of the type parameters under each start with, if any
+  const scopes: (string | undefined)[] = [undefined, call ? '' : '__type.'];
+  let ownTypeParams = Boolean(generic); // the page's first Type Parameters are its own, not its signature's
+  let signed = false; // the page's signature, which has a heading only as one of several, is anchored
+  let accessor = ''; // the last member, whose Get and Set Signatures TypeDoc anchors as `<name>.<name>`
+  let constructors = 0; // Constructor headings, one per signature
+  const pageTypeParams: string[] = []; // which a class's constructor signatures repeat
+  const label = (heading: string, hashes: string, title: string, next = '', offset = 0, text = '') => {
+    const level = hashes.length;
+    const inside = level > member;
+    // a member's heading is followed by its declaration naming it, `b.c` as `c`: an enum member may look like a section
+    const declared = next.startsWith('> ') && next.includes(`**${/^(?:~~)?(?:.*\.)?([^(~.]+)/.exec(title)?.[1]}**`);
+    // or by a heading per signature, as an accessor's or overloaded method's is
+    const signatures = new RegExp(`^${hashes}# (?:Call|Get|Set) Signature$`).test(next);
+    const section = typedocSections.has(title) && (inside || !declared);
+    const method = /\(\)\??(?:~~)?$/.test(title);
+    scopes.length = level;
+    if (level <= names) {
+      names = 7;
+      typeParams = undefined;
+    }
+    if (section) {
+      const own = level === 2 && title === 'Type Parameters' && ownTypeParams;
+      if (own) ownTypeParams = false;
+      else if (level === 2 && /^(?:Call Signature|Type Parameters|Parameters|Returns)$/.test(title)) {
+        if (title === 'Call Signature' || !signed) anchor(signature);
+        signed = true;
+      }
+      if (title === 'Type Parameters') typeParams = own ? '' : scopes[level - 1];
+      if (title === 'Get Signature' || title === 'Set Signature') anchor(`${accessor}.${accessor}`);
+      if (level === 2 && (title === 'Indexable' || (members && title === 'Index Signature'))) {
+        // one per signature, as `\[key: string\]: T`
+        const body = text.slice(offset).split('\n#', 1)[0];
+        for (const _ of body.matchAll(/^(?:> )?\\\[/gm)) anchor('__index');
+      }
+      if (title.endsWith('Parameters')) names = level;
+      if (title === 'Call Signature') scopes[level] = scopes[level - 1];
+      if (!inside) member = level;
+      return `**${title}**`;
+    }
+    if (!inside) {
+      // a Constructor heading per signature, the first also the constructor's
+      const constructor = title === 'Constructor' && next.startsWith('> **new ');
+      member = declared || signatures || constructor ? level : 7;
+      if (member === 7) return heading; // a group's, a category's, or one in the page's comment
+      if (method) scopes[level] = '';
+      accessor = title;
+      const id = constructor && constructors++ ? undefined : anchor(title);
+      if (constructor) {
+        for (const key of [page, ...pageTypeParams.map((t) => `${page}.${t}`)]) anchor(`constructor.${key}`);
+      }
+      return id ? `${heading} { #${id} }` : heading;
+    }
+    // neither a parameter's name nor a member of the member's type: a section, such as one of a custom block tag
+    if (level <= names && !declared && !signatures) return `**${title}**`;
+    if (level === names + 1 && typeParams !== undefined) {
+      if (level === 3) pageTypeParams.push(title);
+      return nameLabel(title, anchor(typeParams + title));
+    }
+    if (!(members && level === 3 && (declared || signatures))) return nameLabel(title);
+    if (method) scopes[level] = `${title}.`;
+    accessor = title;
+    return nameLabel(title, anchor(title));
+  };
+  // a heading in an example stays
+  return splitCode(md)
+    .map((part, i) => (i % 2 ? part : part.replace(typedocHeading, label)))
+    .join('');
+}
+
+// a name in code, as in the signature; TypeDoc escapes Markdown in it and strikes out a deprecated member's
+const nameLabel = (title: string, id?: string) =>
+  title.replace(
+    /^(~~)?(.+?)\1$/,
+    (_, strike = '', name: string) =>
+      `${strike}**\`${name.replace(/\\(.)/g, '$1')}\`**${strike}${id ? `{ #${id} }` : ''}`,
+  );
+
+// TypeDoc's anchors on a page, slugged from the names of what it documents there, `a-1` for the second `a`
+function typedocAnchors(): (name: string) => string {
+  const seen = new Map<string, number>();
+  return (name) => {
+    const base =
+      name
+        .trim()
+        .replace(/[\u2000-\u206F\u2E00-\u2E7F\\'!"#$%&()*+,./:;<=>?@[\]^`{|}~]/g, '')
+        .replace(/\s/g, '-')
+        .replace(/--+/, '-')
+        .toLowerCase() || '_';
+    let n = seen.get(base);
+    let anchor = base;
+    if (n !== undefined) {
+      do anchor = `${base}-${++n}`;
+      while (seen.has(anchor));
+    }
+    seen.set(base, n ?? 0);
+    return anchor;
+  };
+}
+
 // Dokka's enum Entries table: no header, and each row repeats the entry's name as its signature
 const entries = /^## Entries\n\n\| \| \|\n\|---\|---\|\n((?:\|.*\n?)+)/m;
 // an entry with arguments or annotations keeps its signature
@@ -563,7 +738,7 @@ def_list = {}
 footnotes = {}
 md_in_html = {}
 toc.permalink = true
-# member headings only; TypeDoc's Type Parameters, Example and See headings under each member would crowd the page TOC
+# member headings only; headings under a member would crowd the page TOC
 toc.toc_depth = 3
 pymdownx.arithmatex.generic = true
 pymdownx.betterem = {}
