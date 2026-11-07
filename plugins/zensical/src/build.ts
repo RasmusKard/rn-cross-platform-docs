@@ -44,6 +44,7 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
  * Swift pages are labeled `swift`, TypeScript pages' Parameters and Returns headings become bold labels, and Kotlin
  * enum Entries tables get a Name and Summary header and lose the repeated entry name.
+ * Kotlin constructors pages are titled `constructor`.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -117,6 +118,8 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // before the H1: they repeat the site's breadcrumbs, and Zensical's search gives the text before an H1 its own entry,
 // listing each page twice. Dokka titles every package page "Package-level declarations"; its folder is named after the
 // package. Dokka marks each declaration and parameter table with its source set, androidJvm, the only one there is.
+// Dokka titles a class's constructors page, `-<class>/-<class>.md`, after the class, so search lists the class twice.
+// A type's folder starts with `-` (capitals are written `-x`); a package's member can be named like its package too.
 // DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
 // Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
 // is found under the member.
@@ -126,6 +129,8 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
     const pkg = basename(dirname(page));
     let tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
     if (platform === 'kotlin') tidy = tidy.replace(sourceSetHint, '').replace(entries, entriesTable);
+    if (platform === 'kotlin' && pkg.startsWith('-') && basename(page) === `${pkg}.md`)
+      tidy = tidy.replace(/^# .+$/m, '# constructor');
     if (platform === 'typescript')
       tidy = tidy.replace(typedocLabel, (m, label?: string) => (label ? `**${label}**` : m));
     if (platform === 'swift')

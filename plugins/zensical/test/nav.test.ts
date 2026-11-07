@@ -27,7 +27,7 @@ await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async
     'package-list': '',
     'lib/com.example/index.md': '# com.example',
     'lib/com.example/-web-view/index.md': '# WebView',
-    'lib/com.example/-web-view/-web-view.md': '# WebView',
+    'lib/com.example/-web-view/-web-view.md': '# constructor',
     'lib/com.example/-web-view/load.md': '# load',
     'lib/com.example/-mode/index.md': '# Mode',
     'lib/com.example/-mode/-o-n/index.md': '# ON',
@@ -44,7 +44,7 @@ await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async
           {
             WebView: [
               'lib/com.example/-web-view/index.md',
-              { constructor: 'lib/com.example/-web-view/-web-view.md' },
+              'lib/com.example/-web-view/-web-view.md',
               'lib/com.example/-web-view/load.md',
             ],
           },

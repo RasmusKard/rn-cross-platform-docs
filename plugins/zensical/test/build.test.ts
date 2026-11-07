@@ -143,6 +143,30 @@ await test('titles Kotlin package pages by package name', async () => {
   assert.equal(readFileSync(join(out, 'docs/kotlin/lib/com.example/index.md'), 'utf8'), '# com.example\n');
 });
 
+await test("titles a Kotlin class's constructors page constructor, not after the class", async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example/-t'), { recursive: true });
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/com.example/-t/index.md'), '# T\n\n[androidJvm]\\\nclass T\n');
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/com.example/-t/-t.md'), '# T\n\n[androidJvm]\\\nconstructor()\n');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/kotlin/lib/com.example/-t/-t.md'), 'utf8'),
+    '# constructor\n\nconstructor()\n',
+  );
+  assert.equal(readFileSync(join(out, 'docs/kotlin/lib/com.example/-t/index.md'), 'utf8'), '# T\n\nclass T\n');
+  assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/kotlin/.nav.yml'), 'utf8')), {
+    nav: ['lib/com.example/-t/index.md', 'lib/com.example/-t/-t.md'],
+  });
+});
+
+await test('keeps the title of a Kotlin function named like its package', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/kotlin/lib/greet'), { recursive: true });
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/greet/greet.md'), '# greet\n\n[androidJvm]\\\nfun greet()\n');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.match(readFileSync(join(out, 'docs/kotlin/lib/greet/greet.md'), 'utf8'), /^# greet\n/);
+});
+
 await test('orders guides as the README links them, then any rest, and keeps a guides/.nav.yml of its own', async () => {
   const root = library();
   writeFileSync(
