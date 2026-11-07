@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, test } from 'node:test';
@@ -49,17 +49,19 @@ await test('an unknown option exits 2 with usage', () => {
   assert.match(r.stderr, /Usage: rn-cross-platform-docs-zensical build/);
 });
 
-await test('a missing uvx exits 1 and points to the uv install', () => {
+await test('a missing uv exits 1 and points to the uv install', () => {
   const r = buildWith({});
   assert.equal(r.status, 1);
   assert.match(
     r.stderr,
-    /`uvx` not found: uv is not on PATH; see https:\/\/docs\.astral\.sh\/uv\/getting-started\/installation\//,
+    /`uv` not found: uv is not on PATH; see https:\/\/docs\.astral\.sh\/uv\/getting-started\/installation\//,
   );
 });
 
-await test('a failing uvx run exits 1 with the command and its status', () => {
-  const r = buildWith({ uvx: '#!/bin/sh\nexit 3\n' });
+await test('a failing uv run exits 1 with the command and its status', () => {
+  const r = buildWith({ uv: '#!/bin/sh\nexit 3\n' });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /`uvx --exclude-newer \S+ zensical@\S+ build` in \S+docs-site failed with exit code 3/);
+  const command = /`uv run --frozen --isolated --project (\S+) zensical build` in \S+docs-site failed with exit code 3/;
+  const project = command.exec(r.stderr)?.[1];
+  assert.ok(project && existsSync(join(project, 'uv.lock')), r.stderr);
 });

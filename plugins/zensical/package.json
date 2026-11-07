@@ -24,7 +24,9 @@
   },
   "exports": {},
   "files": [
-    "dist"
+    "dist",
+    "pyproject.toml",
+    "uv.lock"
   ],
   "publishConfig": {
     "access": "public"

@@ -16,6 +16,25 @@ updates:
       # typedoc 0.28's peer range stops at 6.0.x; both packages move together once it supports 7.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
+  # Zensical and its dependencies, which the published plugin runs from uv.lock.
+  - package-ecosystem: uv
+    directory: /plugins/zensical
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+    # An update changes what the published plugin runs, so it is a fix that release-please releases.
+    commit-message:
+      prefix: fix
+      include: scope
+    # The lock pins Zensical's dependencies too; otherwise they would only move when a Zensical update needs them to.
+    allow:
+      - dependency-type: all
+    # Zensical gets a PR of its own, and the rest share one.
+    groups:
+      zensical-dependencies:
+        patterns: ['*']
+        exclude-patterns: [zensical]
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -6,3 +6,5 @@
 /plugins/zensical/package.json @RasmusKard
 /plugins/zensical/package-lock.json @RasmusKard
 /plugins/zensical/.npmrc @RasmusKard
+/plugins/zensical/pyproject.toml @RasmusKard
+/plugins/zensical/uv.lock @RasmusKard
