@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.3.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.2.0...v1.3.0) (2026-11-07)
+
+
+### Features
+
+* Link the types in Swift declarations to their pages ([#43](https://github.com/RasmusKard/rn-cross-platform-docs/issues/43)) ([726ec6d](https://github.com/RasmusKard/rn-cross-platform-docs/commit/726ec6d0fca821f28139b22c6b56371ff1242acb))
+
+
+### Bug Fixes
+
+* Generate the other platforms when only Swift's podspec is ambiguous ([#41](https://github.com/RasmusKard/rn-cross-platform-docs/issues/41)) ([7d85276](https://github.com/RasmusKard/rn-cross-platform-docs/commit/7d8527624462300dcf6982165d64bebba2edae39))
+* Give Swift pages file names and links the site build can serve ([#42](https://github.com/RasmusKard/rn-cross-platform-docs/issues/42)) ([5d8eb08](https://github.com/RasmusKard/rn-cross-platform-docs/commit/5d8eb08e6676f7fce886f3da6184e2873f8b549d))
+* Ignore a stray comma in --platforms, and name the platforms when the list is empty ([#44](https://github.com/RasmusKard/rn-cross-platform-docs/issues/44)) ([54f6cdb](https://github.com/RasmusKard/rn-cross-platform-docs/commit/54f6cdb09a74da9b9776678ff47a375b963870f0))
+* Keep a Kotlin function named like a type from breaking the site build ([#49](https://github.com/RasmusKard/rn-cross-platform-docs/issues/49)) ([7de7cc1](https://github.com/RasmusKard/rn-cross-platform-docs/commit/7de7cc14460e10677261a45905c271383a4dd490))
+* Keep the README's images and links to other repo files working on the Zensical site ([#50](https://github.com/RasmusKard/rn-cross-platform-docs/issues/50)) ([ac93d68](https://github.com/RasmusKard/rn-cross-platform-docs/commit/ac93d68f394f17a1524ed8619c676fc0b1907946))
+* Keep words apart in Kotlin search results, and list each member once ([#47](https://github.com/RasmusKard/rn-cross-platform-docs/issues/47)) ([ee92d65](https://github.com/RasmusKard/rn-cross-platform-docs/commit/ee92d65477f066a9a356ae0f5b737af54bde7160))
+* List each TypeScript member once in search, with its parameters, return value and examples ([#53](https://github.com/RasmusKard/rn-cross-platform-docs/issues/53)) ([9b16f02](https://github.com/RasmusKard/rn-cross-platform-docs/commit/9b16f0277251252b577bcda0e0dbe399955dd5ac))
+* Name the missing tool, and what to do, when xcodebuild or gradlew can't run ([#34](https://github.com/RasmusKard/rn-cross-platform-docs/issues/34)) ([1b46c04](https://github.com/RasmusKard/rn-cross-platform-docs/commit/1b46c0463e80590924eb2b9ee5ab7d36a3b25af6))
+* Number repeated TypeScript anchors the way typedoc-plugin-markdown does ([#55](https://github.com/RasmusKard/rn-cross-platform-docs/issues/55)) ([caecb86](https://github.com/RasmusKard/rn-cross-platform-docs/commit/caecb86230ea6a6f836f783db7f2becc09e1d4ee))
+* Order the guides by every kind of README link to them ([#51](https://github.com/RasmusKard/rn-cross-platform-docs/issues/51)) ([cbf63d3](https://github.com/RasmusKard/rn-cross-platform-docs/commit/cbf63d344c81bd1c0b997e814227cdb4599c87cd))
+* Point README links into the API reference at the site's pages ([#52](https://github.com/RasmusKard/rn-cross-platform-docs/issues/52)) ([ddd065b](https://github.com/RasmusKard/rn-cross-platform-docs/commit/ddd065babdeb266217e3569f02e961e8a434755b))
+* Remove the staging and Swift build directories when generate is interrupted ([#45](https://github.com/RasmusKard/rn-cross-platform-docs/issues/45)) ([41c1f29](https://github.com/RasmusKard/rn-cross-platform-docs/commit/41c1f2957e759cef735b5237ce2cf2726f7fedec))
+* Run Zensical from a hash-checked uv.lock that Dependabot keeps up to date ([#56](https://github.com/RasmusKard/rn-cross-platform-docs/issues/56)) ([66aa95f](https://github.com/RasmusKard/rn-cross-platform-docs/commit/66aa95f597216b1239d5b8cfb1f5736e40cf8fc3))
+* Show Kotlin signatures as code, without a link to their own page ([#48](https://github.com/RasmusKard/rn-cross-platform-docs/issues/48)) ([e76fe52](https://github.com/RasmusKard/rn-cross-platform-docs/commit/e76fe5292ac6eb26fbb4680b2458a5654a9ebecf))
+* Tell code apart from headings in every kind of code fence ([#54](https://github.com/RasmusKard/rn-cross-platform-docs/issues/54)) ([e3a8b7f](https://github.com/RasmusKard/rn-cross-platform-docs/commit/e3a8b7f4e4d3bb66b0e58011cfde53edec0944c5))
+* Title the Kotlin constructors page as constructor, not after its class ([#46](https://github.com/RasmusKard/rn-cross-platform-docs/issues/46)) ([2962678](https://github.com/RasmusKard/rn-cross-platform-docs/commit/2962678127f239e1392321f478f1e6c65b8b0de2))
+
+
+### Performance Improvements
+
+* Load TypeDoc only when generating the TypeScript reference ([#35](https://github.com/RasmusKard/rn-cross-platform-docs/issues/35)) ([fbe156b](https://github.com/RasmusKard/rn-cross-platform-docs/commit/fbe156b328ec4bd237160640dc56a3c21165cc5b))
+
 ## [1.2.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.1.0...v1.2.0) (2026-11-04)
 
 
