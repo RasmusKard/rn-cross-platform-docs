@@ -72,7 +72,8 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
   [ExpoGreeter.podspec](examples/expo-greeter/ios/ExpoGreeter.podspec).
 - `android/Module.md`, if there is one, is Dokka's module and package documentation. For a library with one package,
   the site leaves out Dokka's root page, so only the `# Package` section shows there.
-- TypeDoc runs on your own `typedoc.json`; without one, the entry point is `src/index.ts(x)` and no README page is made.
+- TypeDoc runs on your own TypeDoc config. Where it doesn't set them, the entry point is `src/index.ts(x)` and `readme`
+  is `none`, so no README page is made.
 - The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
   from your TypeDoc config.
 - Swift file names contain `:` and `!`, so Windows can't check out a committed Swift tree.
