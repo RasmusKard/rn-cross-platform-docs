@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { existsSync } from 'node:fs';
-import { readdir } from 'node:fs/promises';
+import { chmod, mkdir, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { generate } from '../src/generate.ts';
@@ -64,4 +66,54 @@ void test('Swift with several podspecs is an error only when Swift is generated'
 
   await generate(root, { out: 'docs/reference', platforms: ['typescript'] });
   assert.ok(existsSync(join(root, 'docs/reference/typescript/functions/hi.md')));
+});
+
+/** The CLI running `generate` with `args` in `root`, once its build has printed; `stderr` collects what it writes there. */
+async function generating(root: string, args: string[], env?: NodeJS.ProcessEnv, execArgv: string[] = []) {
+  const cli = new URL('../src/cli.ts', import.meta.url).pathname;
+  // its own process group, so a signal to it reaches the build too, as a terminal's Ctrl-C does
+  const child = spawn(process.execPath, [...execArgv, cli, 'generate', ...args], { cwd: root, detached: true, env });
+  const stderr: string[] = [];
+  child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk.toString()));
+  await once(child.stdout, 'data');
+  return { child, stderr };
+}
+
+void test('an interrupted run removes its staging directory and ends by the signal', async (t) => {
+  const root = await repo(t, {
+    'android/src/Probe.kt': '',
+    'example/android/gradlew': '#!/bin/sh\necho started\nexec sleep 10\n',
+  });
+  await chmod(join(root, 'example/android/gradlew'), 0o755);
+  const { child, stderr } = await generating(root, ['--platforms', 'kotlin']);
+  assert.match((await readdir(join(root, 'docs/reference'))).join(), /^\.kotlin-\w+$/);
+
+  process.kill(-child.pid!, 'SIGINT');
+
+  assert.deepEqual(await once(child, 'exit'), [null, 'SIGINT']);
+  assert.deepEqual(stderr, []);
+  assert.deepEqual(await readdir(join(root, 'docs/reference')), []);
+});
+
+void test("an interrupted Swift run also removes Xcode's DerivedData directory", async (t) => {
+  const root = await repo(t, {
+    'ios/Probe.podspec': '',
+    'ios/Probe.swift': '',
+    'example/ios/Probe.xcworkspace/contents.xcworkspacedata': '',
+    'bin/xcodebuild': '#!/bin/sh\necho started\nexec sleep 10\n',
+  });
+  await chmod(join(root, 'bin/xcodebuild'), 0o755);
+  const tmp = join(root, 'tmp');
+  await mkdir(tmp);
+  const env = { ...process.env, PATH: `${join(root, 'bin')}:${process.env.PATH}`, TMPDIR: tmp };
+  const darwin = 'data:text/javascript,Object.defineProperty(process, "platform", { value: "darwin" })';
+  const { child, stderr } = await generating(root, ['--platforms', 'swift'], env, ['--import', darwin]);
+  assert.match((await readdir(tmp)).join(), /^rn-cross-platform-docs-dd-\w+$/);
+
+  process.kill(-child.pid!, 'SIGINT');
+
+  assert.deepEqual(await once(child, 'exit'), [null, 'SIGINT']);
+  assert.deepEqual(stderr, []);
+  assert.deepEqual(await readdir(join(root, 'docs/reference')), []);
+  assert.deepEqual(await readdir(tmp), []);
 });
