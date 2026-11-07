@@ -80,6 +80,8 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - DocC in Xcode 27 (Swift 6.4) writes no Topics in its Markdown, so the Swift landing page and type pages don't list
   their members, except the Topics a catalog article writes itself; the Zensical site's sidebar still lists them.
   [swift-docc#1625](https://github.com/swiftlang/swift-docc/pull/1625) fixes it in a later release.
+- A Swift declaration that names another of the module's types is an HTML code block (`<pre><code>`), so the type can
+  link to its page. GitHub and the site show it as code; the site doesn't color its syntax.
 - Kotlin pages list only the members a class declares or overrides. Inherited ones, from Android and React Native base
   classes too, would otherwise fill the page with links to anchors Dokka's Markdown doesn't write.
 
