@@ -1,12 +1,19 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { afterEach, test } from 'node:test';
 import { platformNav, typescriptNav } from '../src/nav.ts';
+
+const dirs: string[] = [];
+// a file-level after() can run before later top-level awaited tests, so clean up after each
+afterEach(() => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
 
 function tree(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), 'nav-'));
+  dirs.push(dir);
   for (const [path, body] of Object.entries(files)) {
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     writeFileSync(join(dir, path), body);
@@ -20,7 +27,7 @@ await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async
     'package-list': '',
     'lib/com.example/index.md': '# com.example',
     'lib/com.example/-web-view/index.md': '# WebView',
-    'lib/com.example/-web-view/-web-view.md': '# WebView',
+    'lib/com.example/-web-view/-web-view.md': '# constructor',
     'lib/com.example/-web-view/load.md': '# load',
     'lib/com.example/-mode/index.md': '# Mode',
     'lib/com.example/-mode/-o-n/index.md': '# ON',
@@ -37,7 +44,7 @@ await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async
           {
             WebView: [
               'lib/com.example/-web-view/index.md',
-              { constructor: 'lib/com.example/-web-view/-web-view.md' },
+              'lib/com.example/-web-view/-web-view.md',
               'lib/com.example/-web-view/load.md',
             ],
           },
@@ -51,7 +58,7 @@ await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async
 await test("Kotlin: an enum's entries in declaration order, without Dokka's entries, valueOf and values", async () => {
   const dir = tree({
     'lib/p/-mode/index.md':
-      '# Mode\n\nSee [OFF](-o-f-f/index.md).\n\n## Entries\n\n| | |\n|---|---|\n' +
+      '# Mode\n\nSee [OFF](-o-f-f/index.md).\n\n## Entries { data-search-exclude }\n\n| | |\n|---|---|\n' +
       '| [ON](-o-n/index.md) | Unlike [OFF](-o-f-f/index.md) |\n| [AUTO](-a-u-t-o/index.md) | |\n| [OFF](-o-f-f/index.md) | |\n\n' +
       '## Properties\n\n| Name | Summary |\n|---|---|\n| [entries](entries.md) | |\n\n' +
       '## Functions\n\n| Name | Summary |\n|---|---|\n| [describe](describe.md) | |\n| [valueOf](value-of.md) | |\n',

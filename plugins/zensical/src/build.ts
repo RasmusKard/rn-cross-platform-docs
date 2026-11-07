@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { cp, glob, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { existsSync, statSync, type Stats } from 'node:fs';
+import { cp, glob, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { platformNav, typescriptNav, type NavItem, type TypeDocNavItem } from './nav.ts';
 
 /** Zensical version and the date its unpinned Python dependencies are resolved at (`uvx --exclude-newer`). */
@@ -42,8 +42,17 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Writes `zensical.toml` and `docs/` (README.md, guides/, one tree per platform, `.nav.yml` files) to `options.out`.
  * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), Kotlin pages lose
  * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
- * Swift pages are labeled `swift`, TypeScript pages' Parameters and Returns headings become bold labels, and Kotlin
- * enum Entries tables get a Name and Summary header and lose the repeated entry name.
+ * Swift pages are labeled `swift`, TypeScript pages' headings inside each member, such as Parameters, parameter
+ * names and Example, become labels, TypeScript headings and labels get the ids TypeDoc links to, and Kotlin enum
+ * Entries tables get a Name and Summary header and lose the repeated entry name.
+ * Kotlin constructors pages are titled `constructor`, a space follows each line break (`<br>`) in Kotlin table cells,
+ * and Kotlin tables of members are left out of search.
+ * Kotlin signatures are set as code, without a link to their own page. A Kotlin function named like a type beside it
+ * moves from `<name>.md`, which shares the type page's URL, to `<name>.fun.md`, and links to it follow.
+ * In README.md and the guides, an image of another file in the library, `srcset` ones too, gets a copy of it at the
+ * same path in `docs/`, unless that path is the site's own; other links to files and folders in the repository, and
+ * the images it can't copy, point to them at the web URL of package.json `repository`, if it has one; links to the
+ * reference's files point to the site's copies, if it has them. Links in code stay as they are.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -83,16 +92,20 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
     await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(await treeNav(join(docs, p), p)));
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
-  // the theme sets h5 in capitals, which TypeDoc uses for parameter names, and its break-word splits identifiers in
-  // table cells, where a wide table scrolls instead; Dokka's tables of parameters and exceptions have empty header
-  // rows; the sidebar cuts off a label that is one long identifier, where it can wrap instead
+  // the theme's break-word splits identifiers in table cells, where a wide table scrolls instead; Dokka's tables of
+  // parameters and exceptions have empty header rows; the sidebar cuts off a label that is one long identifier, where
+  // it can wrap instead; Kotlin signatures are paragraphs, to keep their links, set like code blocks
   await writeFile(
     join(docs, 'extra.css'),
-    '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
-      '.md-typeset table code { word-break: normal; }\n.md-nav--primary .md-ellipsis { overflow-wrap: anywhere; }\n',
+    '.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
+      '.md-typeset table code { word-break: normal; }\n.md-nav--primary .md-ellipsis { overflow-wrap: anywhere; }\n' +
+      '.md-typeset .kotlin-signature { padding: .8em 1.25em; overflow-x: auto; font-family: var(--md-code-font-family); ' +
+      'font-size: .85em; color: var(--md-code-fg-color); background-color: var(--md-code-bg-color); border-radius: .4rem; }\n',
   );
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
+  // last, so the images it copies can't replace anything above
+  await linkRepoFiles(resolve(root), docs, referenceDir, pkg.repository);
   await writeFile(toml, zensicalToml(pkg, siteUrl));
   return projectDir;
 }
@@ -117,32 +130,262 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // before the H1: they repeat the site's breadcrumbs, and Zensical's search gives the text before an H1 its own entry,
 // listing each page twice. Dokka titles every package page "Package-level declarations"; its folder is named after the
 // package. Dokka marks each declaration and parameter table with its source set, androidJvm, the only one there is.
+// Dokka titles a class's constructors page, `-<class>/-<class>.md`, after the class, so search lists the class twice.
+// A type's folder starts with `-` (capitals are written `-x`); a package's member can be named like its package too.
+// Zensical's search drops Dokka's table cell line breaks (<br>) without a space, joining the words on either side.
+// Dokka's tables of members repeat what each member's own page says, so search would list every member twice.
+// Dokka writes a declaration as a paragraph, set like the prose around it, whose name links to the page it's on.
+// Dokka writes a function named like a type beside it (Kotlin's factory-function idiom, a capitalized @Composable) to
+// `<name>.md`, which with directory URLs is served where the type's `<name>/index.md` is.
 // DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
-// Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
-// is found under the member.
+// headings inside a member, such as Parameters, each parameter's name, Returns and Example, would each be a search
+// entry, filing the return value under the last parameter's name; as labels, their text is found under the member.
+// TypeDoc links to an anchor for each name it documents on a page, numbering a repeated one `a-1` among those names
+// alone, which include some that become labels, such as a method's type parameters, but no group heading, such as
+// Properties; Python-Markdown would number every heading instead, `a_1`.
 async function tidyPages(dir: string, platform: string): Promise<void> {
+  const namesakes = platform === 'kotlin' ? await typeNamesakes(dir) : new Set<string>();
   for await (const page of glob('**/*.md', { cwd: dir })) {
     const md = await readFile(join(dir, page), 'utf8');
     const pkg = basename(dirname(page));
     let tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
-    if (platform === 'kotlin') tidy = tidy.replace(sourceSetHint, '').replace(entries, entriesTable);
-    if (platform === 'typescript')
-      tidy = tidy.replace(typedocLabel, (m, label?: string) => (label ? `**${label}**` : m));
+    // the root and package pages declare nothing: their source set mark comes before a description
+    if (platform === 'kotlin' && page !== 'index.md' && !/^# Package-level declarations$/m.test(md))
+      tidy = tidy.replace(signature, codeSignature(basename(page)));
+    if (platform === 'kotlin')
+      tidy = tidy
+        .replace(sourceSetHint, '')
+        .replace(entries, entriesTable)
+        .replace(lineBreak, (m) => (m === '<br>' ? '<br> ' : m))
+        .replace(memberTable, '$& { data-search-exclude }');
+    if (platform === 'kotlin' && pkg.startsWith('-') && basename(page) === `${pkg}.md`)
+      tidy = tidy.replace(/^# .+$/m, '# constructor');
+    if (namesakes.size)
+      tidy = tidy.replace(pageLink, (href) => (namesakes.has(join(dirname(page), href)) ? funPage(href) : href));
+    if (platform === 'typescript') tidy = typedocLabels(tidy);
     if (platform === 'swift')
-      tidy = tidy.replace(codeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
+      tidy = splitCode(tidy)
+        .map((part, i) => (i % 2 ? part.replace(bareFence, '$&swift') : part))
+        .join('');
     await writeFile(join(dir, page), tidy);
   }
+  // after the loop, whose glob could list a moved page again
+  for (const page of namesakes) await rename(join(dir, page), join(dir, funPage(page)));
 }
 
-const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
-// a code block, so a heading in an example stays, or one of TypeDoc's labels
-const typedocLabel = /^```[\s\S]*?^```$|^#{2,6} (Parameters|Returns)$/gm;
+/** The pages of the Dokka tree at `dir` that are named like the type folder beside them. */
+async function typeNamesakes(dir: string): Promise<Set<string>> {
+  const pages = new Set<string>();
+  for await (const page of glob('**/*.md', { cwd: dir })) {
+    if (existsSync(join(dir, page.slice(0, -3), 'index.md'))) pages.add(page);
+  }
+  return pages;
+}
+
+// a JVM name can't hold a `.`, so Dokka writes no page of this name
+const funPage = (page: string) => `${page.slice(0, -3)}.fun.md`;
+// a link's target, up to its anchor
+const pageLink = /(?<=\]\()[^)#]+/g;
+
+/** `md` as prose and the fenced code blocks between, `[prose, code, prose, …, prose]`, by CommonMark's rules. */
+function splitCode(md: string): string[] {
+  const parts = [''];
+  let fence = ''; // the open block's, such as ```` or ~~~
+  for (const line of md.split(/(?<=\n)/)) {
+    const [, run = '', info = ''] = /^ {0,3}(`{3,}|~{3,})(.*)/.exec(line) ?? [];
+    // a backtick in the info string makes the line inline code
+    if (!fence && run && !(run[0] === '`' && info.includes('`'))) {
+      fence = run;
+      parts.push(line);
+    } else if (fence && run.startsWith(fence) && !info.trim()) {
+      fence = '';
+      parts[parts.length - 1] += line;
+      parts.push('');
+    } else parts[parts.length - 1] += line;
+  }
+  if (fence) parts.push('');
+  return parts;
+}
+
+// the opening fence of a code block without a language
+const bareFence = /^ {0,3}(?:`{3,}|~{3,})(?=[ \t]*\n)/;
+// typedoc-plugin-markdown's headings in a member or in the page's own, in English
+const typedocSections = new Set([
+  'Parameters',
+  'Type Parameters',
+  'Returns',
+  'Type Declaration',
+  'Union Members',
+  'Type Literal',
+  'Function',
+  'Call Signature',
+  'Get Signature',
+  'Set Signature',
+  'Index Signature',
+  'Indexable',
+  'Hierarchy',
+  'Extends',
+  'Extended by',
+  'Implements',
+  'Implementation of',
+  'Inherited from',
+  'Overrides',
+  // block tags
+  'Example',
+  'Examples',
+  'Remarks',
+  'See',
+  'Throws',
+  'Deprecated',
+  'Default Value',
+  'Default',
+  'Since',
+]);
+// a heading and the next line that isn't blank, if any
+const typedocHeading = /^(#{2,6}) (.+)$(?=(?:\n+(.*))?)/gm;
+
+/**
+ * `md` with the headings inside each member as labels: TypeDoc's sections, and any heading under one or a member's.
+ * Each heading and label TypeDoc makes an anchor for gets that anchor as its id.
+ */
+function typedocLabels(md: string): string {
+  // the H1's name, as in `# Class: Box\<T\>`, with `()` for signatures, and the declaration under it, if any
+  const [, page = '', call, generic, declaration = ''] =
+    /^# (?:~~)?(?:.*: )?(.+?)(\(\))?((?:\\<|<|&lt;).*?)?(?:~~)?$(?:\n+(.*))?/m.exec(md) ?? [];
+  // without `()`, the page's signatures are those of its type, a type literal TypeDoc names `__type`
+  const signature = call ? page : '__type';
+  // a variable of an object literal type, `object` or `{ … }`, whose members TypeDoc anchors
+  const members = /^> .*\*\*: (?:`object`|\\\{.*\\\})$/.test(declaration);
+  const anchor = typedocAnchors();
+  let member = 7; // headings deeper than this level are inside a member
+  let names = 7; // and deeper than this, in a Parameters or Type Parameters section, are names
+  let typeParams: string | undefined; // in a Type Parameters section TypeDoc anchors, what its anchors start with
+  // by heading level, from the H1's, what the anchors of the type parameters under each start with, if any
+  const scopes: (string | undefined)[] = [undefined, call ? '' : '__type.'];
+  let ownTypeParams = Boolean(generic); // the page's first Type Parameters are its own, not its signature's
+  let signed = false; // the page's signature, which has a heading only as one of several, is anchored
+  let accessor = ''; // the last member, whose Get and Set Signatures TypeDoc anchors as `<name>.<name>`
+  let constructors = 0; // Constructor headings, one per signature
+  const pageTypeParams: string[] = []; // which a class's constructor signatures repeat
+  const label = (heading: string, hashes: string, title: string, next = '', offset = 0, text = '') => {
+    const level = hashes.length;
+    const inside = level > member;
+    // a member's heading is followed by its declaration naming it, `b.c` as `c`: an enum member may look like a section
+    const declared = next.startsWith('> ') && next.includes(`**${/^(?:~~)?(?:.*\.)?([^(~.]+)/.exec(title)?.[1]}**`);
+    // or by a heading per signature, as an accessor's or overloaded method's is
+    const signatures = new RegExp(`^${hashes}# (?:Call|Get|Set) Signature$`).test(next);
+    const section = typedocSections.has(title) && (inside || !declared);
+    const method = /\(\)\??(?:~~)?$/.test(title);
+    scopes.length = level;
+    if (level <= names) {
+      names = 7;
+      typeParams = undefined;
+    }
+    if (section) {
+      const own = level === 2 && title === 'Type Parameters' && ownTypeParams;
+      if (own) ownTypeParams = false;
+      else if (level === 2 && /^(?:Call Signature|Type Parameters|Parameters|Returns)$/.test(title)) {
+        if (title === 'Call Signature' || !signed) anchor(signature);
+        signed = true;
+      }
+      if (title === 'Type Parameters') typeParams = own ? '' : scopes[level - 1];
+      if (title === 'Get Signature' || title === 'Set Signature') anchor(`${accessor}.${accessor}`);
+      if (level === 2 && (title === 'Indexable' || (members && title === 'Index Signature'))) {
+        // one per signature, as `\[key: string\]: T`
+        const body = text.slice(offset).split('\n#', 1)[0];
+        for (const _ of body.matchAll(/^(?:> )?\\\[/gm)) anchor('__index');
+      }
+      if (title.endsWith('Parameters')) names = level;
+      if (title === 'Call Signature') scopes[level] = scopes[level - 1];
+      if (!inside) member = level;
+      return `**${title}**`;
+    }
+    if (!inside) {
+      // a Constructor heading per signature, the first also the constructor's
+      const constructor = title === 'Constructor' && next.startsWith('> **new ');
+      member = declared || signatures || constructor ? level : 7;
+      if (member === 7) return heading; // a group's, a category's, or one in the page's comment
+      if (method) scopes[level] = '';
+      accessor = title;
+      const id = constructor && constructors++ ? undefined : anchor(title);
+      if (constructor) {
+        for (const key of [page, ...pageTypeParams.map((t) => `${page}.${t}`)]) anchor(`constructor.${key}`);
+      }
+      return id ? `${heading} { #${id} }` : heading;
+    }
+    // neither a parameter's name nor a member of the member's type: a section, such as one of a custom block tag
+    if (level <= names && !declared && !signatures) return `**${title}**`;
+    if (level === names + 1 && typeParams !== undefined) {
+      if (level === 3) pageTypeParams.push(title);
+      return nameLabel(title, anchor(typeParams + title));
+    }
+    if (!(members && level === 3 && (declared || signatures))) return nameLabel(title);
+    if (method) scopes[level] = `${title}.`;
+    accessor = title;
+    return nameLabel(title, anchor(title));
+  };
+  // a heading in an example stays
+  return splitCode(md)
+    .map((part, i) => (i % 2 ? part : part.replace(typedocHeading, label)))
+    .join('');
+}
+
+// a name in code, as in the signature; TypeDoc escapes Markdown in it and strikes out a deprecated member's
+const nameLabel = (title: string, id?: string) =>
+  title.replace(
+    /^(~~)?(.+?)\1$/,
+    (_, strike = '', name: string) =>
+      `${strike}**\`${name.replace(/\\(.)/g, '$1')}\`**${strike}${id ? `{ #${id} }` : ''}`,
+  );
+
+// TypeDoc's anchors on a page, slugged from the names of what it documents there, `a-1` for the second `a`
+function typedocAnchors(): (name: string) => string {
+  const seen = new Map<string, number>();
+  return (name) => {
+    const base =
+      name
+        .trim()
+        .replace(/[\u2000-\u206F\u2E00-\u2E7F\\'!"#$%&()*+,./:;<=>?@[\]^`{|}~]/g, '')
+        .replace(/\s/g, '-')
+        .replace(/--+/, '-')
+        .toLowerCase() || '_';
+    let n = seen.get(base);
+    let anchor = base;
+    if (n !== undefined) {
+      do anchor = `${base}-${++n}`;
+      while (seen.has(anchor));
+    }
+    seen.set(base, n ?? 0);
+    return anchor;
+  };
+}
+
 // Dokka's enum Entries table: no header, and each row repeats the entry's name as its signature
 const entries = /^## Entries\n\n\| \| \|\n\|---\|---\|\n((?:\|.*\n?)+)/m;
 // an entry with arguments or annotations keeps its signature
 const entriesTable = (_table: string, rows: string) =>
   `## Entries\n\n| Name | Summary |\n|---|---|\n${rows.replace(/^(\| (\[[^\]]+\]\([^)]+\)) \| )\2(?:<br>| (?=\|$))/gm, '$1')}`;
 const sourceSetHint = /^\[androidJvm\]\\\n|\[androidJvm\]<br>|^androidJvm\n\n(?=\|)/gm;
+// a code block or span, kept as written, or a line break in a table row, the only place Dokka writes them
+const lineBreak = /^```[\s\S]*?^```$|`[^`\n]*`|(?<=^\|.*)<br>/gm;
+// the heading over a table of members (or packages), each row a link to its own page
+const memberTable = /^## (?:Packages|Types|Constructors|Properties|Functions|Entries)(?=\n\n\|)/gm;
+// a declaration after its source set mark or, for a type with inheritors, which gets none, after the H1: its
+// annotations, each a paragraph of its own, then one line
+const signature = /^(# .+\n\n|\[androidJvm\]\\\n\n?)((?:@.+\n\n)*)(?![#|]|\[androidJvm\]\\$)(.+)/gm;
+// an annotation within a declaration (a primary constructor's, a parameter's, a type's), which Dokka runs into its
+// neighbors: `class [T](index.md)@[JvmOverloads](…)constructor(`
+const inlineAnnotation = /(?<=[\w)]|&gt;)(?=@\[)|(?<=@\[[^\]]*\]\([^)]*\)(?:\([^)]*\))?)(?=[\w@[])/g;
+// a paragraph styled as code, since a code block can't hold links; links to `self`, the page itself, go
+const codeSignature = (self: string) => (m: string, before: string, annotations: string, line: string, at: number) => {
+  // a level-1 heading in a description isn't the page's H1
+  if (before.startsWith('# ') && at > 0) return m;
+  // the space keeps search from joining the words on either side of a line break, as in a table cell
+  const code = [...annotations.split('\n\n').filter(Boolean), line.trimEnd().replace(inlineAnnotation, ' ')]
+    .join('<br> ')
+    .replace(/\[([^\]]*)\]\(([^)]*)\)/g, (link, text: string, href: string) => (href === self ? text : link));
+  return `${before.startsWith('# ') ? before : ''}<p class="kotlin-signature" markdown="span">${code}</p>`;
+};
 
 // keeps front matter; a page whose first `# ` line follows a code fence (no H1) stays whole
 function dropBeforeH1(md: string): string {
@@ -155,7 +398,16 @@ function dropBeforeH1(md: string): string {
 /** The guides in the order the README links them, then the rest, if there are any. */
 async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }> {
   const readme = await readFile(join(root, 'README.md'), 'utf8');
-  const linked = [...readme.matchAll(/\]\((?:\.\/)?guides\/([^)#\s]+\.md)/g)].map((m) => m[1]);
+  const linked = linkDestinations(readme).flatMap((href) => {
+    const guide = /^(?:\.\/)?guides\/([^?#]+\.md)(?:[?#]|$)/.exec(href)?.[1];
+    if (!guide) return [];
+    try {
+      return [decodeURIComponent(guide)];
+    } catch {
+      // a `%` that is part of the file name, as in 100%.md
+      return [guide];
+    }
+  });
   const nav = [...new Set(linked)].filter((f) => existsSync(join(docs, 'guides', f)));
   // awesome-nav warns about a `*` that matches nothing
   for await (const f of glob('**/*.md', { cwd: join(docs, 'guides') })) {
@@ -164,10 +416,244 @@ async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }>
   return { nav };
 }
 
+/**
+ * Keeps the links and images in `docs`' README.md and guides to other files of the library at `root` working. Links to
+ * the files of a platform's tree in `reference` point to their copies in `docs`, if it has them. An image, also each in
+ * an <img> or <source> srcset, gets a copy of its file at the same path in `docs`, unless one of `docs`' own entries is
+ * there; other links to files and folders in the repository, and the images it can't copy, point to them at the
+ * `repository` web URL, if any.
+ * Links in code, to the site's pages, and to files that don't exist or are outside the repository stay as they are.
+ */
+async function linkRepoFiles(
+  root: string,
+  docs: string,
+  reference: string,
+  repository: Package['repository'],
+): Promise<void> {
+  const repo = repoUrl(repository);
+  const repoRoot = repositoryRoot(root, repository);
+  const own = new Set(await readdir(docs));
+  const copies = new Map<string, string>();
+  const pages = ['README.md'];
+  if (existsSync(join(docs, 'guides'))) {
+    for await (const page of glob('**/*.md', { cwd: join(docs, 'guides') })) pages.push(join('guides', page));
+  }
+  for (const page of pages) {
+    const relink = (href: string, image: boolean): string => {
+      const [, path, suffix] = /^([^?#]*)([\s\S]*)$/.exec(href)!;
+      // an anchor on the page, an absolute URL, or a path from the site's root
+      if (!path || /^(?:[a-z][a-z\d+.-]*:|\/)/i.test(path)) return href;
+      let file: string;
+      let stats: Stats;
+      try {
+        file = resolve(root, dirname(page), decodeURIComponent(path));
+        stats = statSync(file);
+      } catch {
+        return href;
+      }
+      const onSite = file === join(root, 'README.md') || within(join(root, 'guides'), file);
+      if (onSite || !within(repoRoot, file)) return href;
+      // the reference may be generated in CI rather than committed, so the site's copy is the one sure to be there
+      const siteCopy = join(docs, relative(reference, file));
+      const inReference = platforms.some(([p]) => within(join(reference, p), file));
+      if (inReference && statSync(siteCopy, { throwIfNoEntry: false })?.isFile()) {
+        return urlPath(relative(join(docs, dirname(page)), siteCopy)) + suffix;
+      }
+      const inLibrary = relative(root, file);
+      if (image && stats.isFile() && within(root, file) && !own.has(inLibrary.split(sep)[0])) {
+        copies.set(file, join(docs, inLibrary));
+        return href;
+      }
+      const view = stats.isDirectory() ? 'tree' : image ? 'raw' : 'blob';
+      return repo ? repoFileUrl(repo, relative(repoRoot, file), view) + suffix : href;
+    };
+    await writeFile(join(docs, page), relinked(await readFile(join(docs, page), 'utf8'), relink));
+  }
+  // a symlink's copy would point elsewhere
+  for (const [from, to] of copies) await cp(from, to, { dereference: true });
+}
+
+// code, whose links stay, or a reference definition, an inline or reference link or image, or an <a>, <img> or <source>
+const linkOrCode = new RegExp(
+  [
+    // also indented or quoted, as in a list item or a blockquote; an unclosed one runs to the end of the page
+    /^[ \t>]*(?<ticks>`{3,})[^`\n]*\n[\s\S]*?(?:^[ \t>]*\k<ticks>`*[ \t]*$|(?![\s\S]))/.source,
+    /^[ \t>]*(?<tildes>~{3,})[^\n]*\n[\s\S]*?(?:^[ \t>]*\k<tildes>~*[ \t]*$|(?![\s\S]))/.source,
+    /(?<![`\\])(?<span>`+)(?!`)(?:[^\n]|\n(?![ \t\r]*\n))*?(?<!`)\k<span>(?!`)/.source,
+    // not a footnote, whose text would pass for a destination
+    /^(?<def>[ \t>]*\[(?<label>(?!\^)(?:[^[\]\\]|\\.)+)\]:[ \t]*\n?[ \t]*)(?<defDest><[^<>\n]*>|\S+)/.source,
+    /(?<!\\)(?<bang>!?)\[(?<text>(?:[^[\]\\]|\\[\s\S]|\[(?:[^[\]\\]|\\[\s\S])*\])*)\]/.source +
+      '(?:' +
+      /(?<open>\(\s*)(?<dest><[^<>\n]*>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))*)/.source +
+      /(?<close>(?:\s+(?:"[^"]*"|'[^']*'|\([^()]*\)))?\s*\))/.source +
+      '|' +
+      /(?<ref>\[(?:[^[\]\\]|\\.)*\])?/.source +
+      ')',
+    /(?<tag><(?:a|img|source)\b[^>]*>)/.source,
+  ].join('|'),
+  'gim',
+);
+// an image that names a reference definition: `![alt][label]`, `![label][]` or `![label]`
+const imageRef = /!\[((?:[^[\]\\]|\\.)*)\](?:\[((?:[^[\]\\]|\\.)*)\])?/g;
+const refLabel = (label: string) => label.trim().replace(/\s+/g, ' ').toLowerCase();
+// a destination in angle brackets, or an attribute value in quotes
+const wrapped = /^(?:<.*>|".*"|'.*')$/s;
+
+/** `md` with `relink` applied to the destination of each link and image outside code, told which are images'. */
+function relinked(md: string, relink: (href: string, image: boolean) => string): string {
+  const imageLabels = new Set([...md.matchAll(imageRef)].map((m) => refLabel(m[2] || m[1])));
+  // without its angle brackets or quotes
+  const relinkIn = (dest: string, image: boolean) =>
+    wrapped.test(dest) ? dest[0] + relink(dest.slice(1, -1), image) + dest.at(-1) : relink(dest, image);
+  const replace = (text: string): string =>
+    text.replace(linkOrCode, (match, ...args) => {
+      const g = args.at(-1) as Record<string, string | undefined>;
+      // the text of a link can hold an image, such as a badge
+      if (g.dest !== undefined) return `${g.bang}[${replace(g.text!)}]${g.open}${relinkIn(g.dest, !!g.bang)}${g.close}`;
+      // a reference link's destination is relinked at its definition
+      if (g.text !== undefined) return `${g.bang}[${replace(g.text)}]${g.ref ?? ''}`;
+      if (g.defDest !== undefined) return g.def + relinkIn(g.defDest, imageLabels.has(refLabel(g.label!)));
+      if (g.tag !== undefined) return relinkedTag(g.tag, relink);
+      return match;
+    });
+  return splitIndentedCode(md)
+    .map((part, i) => (i % 2 ? part : replace(part)))
+    .join('');
+}
+
+// an attribute with a value
+const attribute = /(?<name>[^\s"'>/=]+)(?<eq>\s*=\s*)(?<value>"[^"]*"|'[^']*'|[^\s"'=<>`]+)/g;
+// a srcset candidate's URL, which can hold a comma but not end with one, and its descriptor, such as 2x or 640w
+const srcsetCandidate = /(?<url>[^\s,](?:\S*[^\s,])?)(?<descriptor>,+|[^,]*)/g;
+
+/**
+ * `tag` with `relink` applied to the URL of an <a href>, or of each image of an <img src> or srcset or a <source
+ * srcset> (as in a <picture>), told which are images'.
+ */
+function relinkedTag(tag: string, relink: (href: string, image: boolean) => string): string {
+  const element = /^<(\w+)/.exec(tag)![1].toLowerCase();
+  return tag.replace(attribute, (attr, name: string, eq: string, value: string) => {
+    const which = `${element} ${name.toLowerCase()}`;
+    if (!['a href', 'img src', 'img srcset', 'source srcset'].includes(which)) return attr;
+    const quote = wrapped.test(value) ? value[0] : '';
+    const url = value.slice(quote.length, value.length - quote.length);
+    const relinkedUrl = which.endsWith('srcset')
+      ? url.replace(srcsetCandidate, (_, src: string, descriptor: string) => relink(src, true) + descriptor)
+      : relink(url, element === 'img');
+    return name + eq + quote + relinkedUrl + quote;
+  });
+}
+
+// the column after `indent`, with tabs stopping at multiples of 4
+const column = (indent: string) => [...indent].reduce((col, c) => (c === '\t' ? col + 4 - (col % 4) : col + 1), 0);
+
+/**
+ * `md` split at its indented code blocks: the text around them at even indexes, the blocks at odd ones. A block starts
+ * after a blank line or a heading, with 4 columns of indent more than the content of the list item it's in, if any.
+ */
+function splitIndentedCode(md: string): string[] {
+  const parts = [''];
+  // the column the content of each list item a line can be in starts at, innermost last
+  const items: number[] = [];
+  let fence: RegExp | undefined;
+  let codeIndent: number | undefined;
+  // whether the line before is a paragraph's, which an indented line continues
+  let afterText = false;
+  for (const line of md.split(/(?<=\n)/)) {
+    const text = line.replace(/\n$/, '');
+    const indent = column(/^[ \t]*/.exec(text)![0]);
+    if (fence) {
+      if (fence.test(text)) [fence, afterText] = [undefined, false];
+    } else if (/^[ \t\r]*$/.test(text)) {
+      afterText = false;
+    } else if (codeIndent === undefined || indent < codeIndent) {
+      codeIndent = undefined;
+      const marker = /^([ \t]*(?:[-+*]|\d{1,9}[.)]))(?:([ \t]+)(?=[^ \t\r])|[ \t]*\r?$)/.exec(text);
+      if (!afterText || marker) while ((items.at(-1) ?? 0) > indent) items.pop();
+      const base = items.at(-1) ?? 0;
+      // fences as linkOrCode matches them, so that no part ends inside one
+      const opener = /^[ \t>]*(`{3,}(?=[^`]*$)|~{3,})/.exec(text)?.[1];
+      if (!afterText && indent >= base + 4) codeIndent = base + 4;
+      else if (opener) fence = new RegExp(`^[ \\t>]*${opener}${opener[0]}*[ \\t]*$`);
+      else {
+        if (marker && indent < base + 4) {
+          // past 1 to 4 columns of space; past 1 if there are more (the item starts with indented code) or none
+          const spaces = column(marker[1] + (marker[2] ?? '')) - column(marker[1]);
+          items.push(column(marker[1]) + (spaces > 4 || !spaces ? 1 : spaces));
+        }
+        afterText = !/^[ \t]*#{1,6}(?:[ \t]|\r?$)/.test(text);
+      }
+    }
+    if ((codeIndent !== undefined) !== (parts.length % 2 === 0)) parts.push('');
+    parts[parts.length - 1] += line;
+  }
+  return parts;
+}
+
+/** The destinations of `md`'s links and images outside code, in order; a reference link's is where it's used. */
+function linkDestinations(md: string): string[] {
+  const matches = (text: string) =>
+    [...text.matchAll(linkOrCode)].map((m) => m.groups as Record<string, string | undefined>);
+  const prose = splitIndentedCode(md).filter((_, i) => i % 2 === 0);
+  const definitions = new Map<string, string>();
+  // backwards, as a label's first definition is the one that counts
+  for (const g of prose.flatMap(matches).reverse()) {
+    if (g.defDest !== undefined) definitions.set(refLabel(g.label!), g.defDest);
+  }
+  const dests: string[] = [];
+  const add = (text: string) => {
+    for (const g of matches(text)) {
+      if (g.tag !== undefined) {
+        relinkedTag(g.tag, (href) => {
+          dests.push(href);
+          return href;
+        });
+      }
+      if (g.text === undefined) continue;
+      add(g.text);
+      const dest = g.dest ?? definitions.get(refLabel(g.ref?.slice(1, -1) || g.text));
+      if (dest !== undefined) dests.push(wrapped.test(dest) ? dest.slice(1, -1) : dest);
+    }
+  };
+  for (const part of prose) add(part);
+  return dests;
+}
+
+function within(dir: string, path: string): boolean {
+  const rel = relative(dir, path);
+  return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
+/**
+ * The root of the repository the library at `root` is in: `repository.directory` levels up, else the nearest folder
+ * from `root` up that has `.git`, else `root`.
+ */
+function repositoryRoot(root: string, repository: Package['repository']): string {
+  const directory = typeof repository === 'object' ? repository.directory : undefined;
+  const depth = directory?.split(/[\\/]/).filter((s) => s && s !== '.').length;
+  if (depth) return resolve(root, '../'.repeat(depth));
+  for (let dir = root; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.git'))) return dir;
+    if (dirname(dir) === dir) return root;
+  }
+}
+
+/** The URL of the `blob` (file) or `tree` (folder) page, or the `raw` file, for `path` in the repository at `repo`. */
+function repoFileUrl(repo: string, path: string, view: 'blob' | 'tree' | 'raw'): string {
+  // Bitbucket shows both files and folders under src/
+  const page = repo.startsWith('https://bitbucket.org/') && view !== 'raw' ? 'src' : view;
+  return `${repo}/${page}/HEAD/${urlPath(path)}`;
+}
+
+/** The relative URL of the relative file path `path`. */
+function urlPath(path: string): string {
+  return path.split(sep).map(encodeURIComponent).join('/');
+}
+
 interface Package {
   name: string;
   description?: string;
-  repository?: string | { url?: string };
+  repository?: string | { url?: string; directory?: string };
 }
 
 const shorthandHosts: Record<string, string> = {
@@ -249,7 +735,7 @@ def_list = {}
 footnotes = {}
 md_in_html = {}
 toc.permalink = true
-# member headings only; TypeDoc's Type Parameters, Example and See headings under each member would crowd the page TOC
+# member headings only; headings under a member would crowd the page TOC
 toc.toc_depth = 3
 pymdownx.arithmatex.generic = true
 pymdownx.betterem = {}

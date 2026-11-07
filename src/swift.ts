@@ -15,6 +15,10 @@ const doccFlags = [
 /** DocC through `xcodebuild docbuild` on `xcodeWorkspace`; docc.ts turns the archive into Markdown. */
 export const generateSwift: Generator = async (library, out, { xcodeWorkspace }) => {
   const podName = library.podName!;
+  const others = library.platforms.filter((p) => p !== 'swift').join(',');
+  const noXcode = `Swift docs need Xcode on macOS; leave swift out with --platforms ${others}`;
+  // ahead of the workspace check, since off macOS CocoaPods never made one
+  if (process.platform !== 'darwin') throw new Error(`\`xcodebuild\` not found: ${noXcode}`);
   const workspace = await findWorkspace(xcodeWorkspace);
   const derivedDataDir = await mkdtemp(join(tmpdir(), 'rn-cross-platform-docs-dd-'));
   try {
@@ -29,7 +33,7 @@ export const generateSwift: Generator = async (library, out, { xcodeWorkspace })
       `OTHER_DOCC_FLAGS=$(inherited) ${doccFlags}`,
       // drops members that protocol conformances copy onto each type (Equatable's !=, Record's decode(_:in:))
       'OTHER_SWIFT_FLAGS=$(inherited) -symbol-graph-skip-synthesized-members',
-    ], dirname(workspace));
+    ], dirname(workspace), noXcode);
     const archive = await findArchive(join(derivedDataDir, 'Build/Products/Debug-iphonesimulator', podName));
     await exportArchive(archive, basename(archive, '.doccarchive'), out);
   } finally {
