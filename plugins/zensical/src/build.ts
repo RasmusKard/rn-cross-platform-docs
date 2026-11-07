@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync, type Stats } from 'node:fs';
 import { cp, glob, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { platformNav, typescriptNav, type NavItem, type TypeDocNavItem } from './nav.ts';
 
 /** Zensical version and the date its unpinned Python dependencies are resolved at (`uvx --exclude-newer`). */
@@ -48,6 +48,10 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * and Kotlin tables of members are left out of search.
  * Kotlin signatures are set as code, without a link to their own page. A Kotlin function named like a type beside it
  * moves from `<name>.md`, which shares the type page's URL, to `<name>.fun.md`, and links to it follow.
+ * In README.md and the guides, an image of another file in the library, `srcset` ones too, gets a copy of it at the
+ * same path in `docs/`, unless that path is the site's own; other links to files and folders in the repository, and
+ * the images it can't copy, point to them at the web URL of package.json `repository`, if it has one. Links in code
+ * stay as they are.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -100,6 +104,8 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   );
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
+  // last, so the images it copies can't replace anything above
+  await linkRepoFiles(resolve(root), docs, pkg.repository);
   await writeFile(toml, zensicalToml(pkg, siteUrl));
   return projectDir;
 }
@@ -226,10 +232,192 @@ async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }>
   return { nav };
 }
 
+/**
+ * Keeps the links and images in `docs`' README.md and guides to other files of the library at `root` working. An image,
+ * also each in an <img> or <source> srcset, gets a copy of its file at the same path in `docs`, unless one of `docs`'
+ * own entries is there; other links to files and folders in the repository, and the images it can't copy, point to
+ * them at the `repository` web URL, if any.
+ * Links in code, to the site's pages, and to files that don't exist or are outside the repository stay as they are.
+ */
+async function linkRepoFiles(root: string, docs: string, repository: Package['repository']): Promise<void> {
+  const repo = repoUrl(repository);
+  const repoRoot = repositoryRoot(root, repository);
+  const own = new Set(await readdir(docs));
+  const copies = new Map<string, string>();
+  const pages = ['README.md'];
+  if (existsSync(join(docs, 'guides'))) {
+    for await (const page of glob('**/*.md', { cwd: join(docs, 'guides') })) pages.push(join('guides', page));
+  }
+  for (const page of pages) {
+    const relink = (href: string, image: boolean): string => {
+      const [, path, suffix] = /^([^?#]*)([\s\S]*)$/.exec(href)!;
+      // an anchor on the page, an absolute URL, or a path from the site's root
+      if (!path || /^(?:[a-z][a-z\d+.-]*:|\/)/i.test(path)) return href;
+      let file: string;
+      let stats: Stats;
+      try {
+        file = resolve(root, dirname(page), decodeURIComponent(path));
+        stats = statSync(file);
+      } catch {
+        return href;
+      }
+      const onSite = file === join(root, 'README.md') || within(join(root, 'guides'), file);
+      if (onSite || !within(repoRoot, file)) return href;
+      const inLibrary = relative(root, file);
+      if (image && stats.isFile() && within(root, file) && !own.has(inLibrary.split(sep)[0])) {
+        copies.set(file, join(docs, inLibrary));
+        return href;
+      }
+      const view = stats.isDirectory() ? 'tree' : image ? 'raw' : 'blob';
+      return repo ? repoFileUrl(repo, relative(repoRoot, file), view) + suffix : href;
+    };
+    await writeFile(join(docs, page), relinked(await readFile(join(docs, page), 'utf8'), relink));
+  }
+  // a symlink's copy would point elsewhere
+  for (const [from, to] of copies) await cp(from, to, { dereference: true });
+}
+
+// code, whose links stay, or a reference definition, an inline link or image, or an <a>, <img> or <source> tag
+const linkOrCode = new RegExp(
+  [
+    // also indented or quoted, as in a list item or a blockquote; an unclosed one runs to the end of the page
+    /^[ \t>]*(?<ticks>`{3,})[^`\n]*\n[\s\S]*?(?:^[ \t>]*\k<ticks>`*[ \t]*$|(?![\s\S]))/.source,
+    /^[ \t>]*(?<tildes>~{3,})[^\n]*\n[\s\S]*?(?:^[ \t>]*\k<tildes>~*[ \t]*$|(?![\s\S]))/.source,
+    /(?<![`\\])(?<span>`+)(?!`)(?:[^\n]|\n(?![ \t\r]*\n))*?(?<!`)\k<span>(?!`)/.source,
+    // not a footnote, whose text would pass for a destination
+    /^(?<def>[ \t>]*\[(?<label>(?!\^)(?:[^[\]\\]|\\.)+)\]:[ \t]*\n?[ \t]*)(?<defDest><[^<>\n]*>|\S+)/.source,
+    /(?<!\\)(?<bang>!?)\[(?<text>(?:[^[\]\\]|\\[\s\S]|\[(?:[^[\]\\]|\\[\s\S])*\])*)\](?<open>\(\s*)/.source +
+      /(?<dest><[^<>\n]*>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))*)/.source +
+      /(?<close>(?:\s+(?:"[^"]*"|'[^']*'|\([^()]*\)))?\s*\))/.source,
+    /(?<tag><(?:a|img|source)\b[^>]*>)/.source,
+  ].join('|'),
+  'gim',
+);
+// an image that names a reference definition: `![alt][label]`, `![label][]` or `![label]`
+const imageRef = /!\[((?:[^[\]\\]|\\.)*)\](?:\[((?:[^[\]\\]|\\.)*)\])?/g;
+const refLabel = (label: string) => label.trim().replace(/\s+/g, ' ').toLowerCase();
+// a destination in angle brackets, or an attribute value in quotes
+const wrapped = /^(?:<.*>|".*"|'.*')$/s;
+
+/** `md` with `relink` applied to the destination of each link and image outside code, told which are images'. */
+function relinked(md: string, relink: (href: string, image: boolean) => string): string {
+  const imageLabels = new Set([...md.matchAll(imageRef)].map((m) => refLabel(m[2] || m[1])));
+  // without its angle brackets or quotes
+  const relinkIn = (dest: string, image: boolean) =>
+    wrapped.test(dest) ? dest[0] + relink(dest.slice(1, -1), image) + dest.at(-1) : relink(dest, image);
+  const replace = (text: string): string =>
+    text.replace(linkOrCode, (match, ...args) => {
+      const g = args.at(-1) as Record<string, string | undefined>;
+      // the text of a link can hold an image, such as a badge
+      if (g.dest !== undefined) return `${g.bang}[${replace(g.text!)}]${g.open}${relinkIn(g.dest, !!g.bang)}${g.close}`;
+      if (g.defDest !== undefined) return g.def + relinkIn(g.defDest, imageLabels.has(refLabel(g.label!)));
+      if (g.tag !== undefined) return relinkedTag(g.tag, relink);
+      return match;
+    });
+  return splitIndentedCode(md)
+    .map((part, i) => (i % 2 ? part : replace(part)))
+    .join('');
+}
+
+// an attribute with a value
+const attribute = /(?<name>[^\s"'>/=]+)(?<eq>\s*=\s*)(?<value>"[^"]*"|'[^']*'|[^\s"'=<>`]+)/g;
+// a srcset candidate's URL, which can hold a comma but not end with one, and its descriptor, such as 2x or 640w
+const srcsetCandidate = /(?<url>[^\s,](?:\S*[^\s,])?)(?<descriptor>,+|[^,]*)/g;
+
+/**
+ * `tag` with `relink` applied to the URL of an <a href>, or of each image of an <img src> or srcset or a <source
+ * srcset> (as in a <picture>), told which are images'.
+ */
+function relinkedTag(tag: string, relink: (href: string, image: boolean) => string): string {
+  const element = /^<(\w+)/.exec(tag)![1].toLowerCase();
+  return tag.replace(attribute, (attr, name: string, eq: string, value: string) => {
+    const which = `${element} ${name.toLowerCase()}`;
+    if (!['a href', 'img src', 'img srcset', 'source srcset'].includes(which)) return attr;
+    const quote = wrapped.test(value) ? value[0] : '';
+    const url = value.slice(quote.length, value.length - quote.length);
+    const relinkedUrl = which.endsWith('srcset')
+      ? url.replace(srcsetCandidate, (_, src: string, descriptor: string) => relink(src, true) + descriptor)
+      : relink(url, element === 'img');
+    return name + eq + quote + relinkedUrl + quote;
+  });
+}
+
+// the column after `indent`, with tabs stopping at multiples of 4
+const column = (indent: string) => [...indent].reduce((col, c) => (c === '\t' ? col + 4 - (col % 4) : col + 1), 0);
+
+/**
+ * `md` split at its indented code blocks: the text around them at even indexes, the blocks at odd ones. A block starts
+ * after a blank line or a heading, with 4 columns of indent more than the content of the list item it's in, if any.
+ */
+function splitIndentedCode(md: string): string[] {
+  const parts = [''];
+  // the column the content of each list item a line can be in starts at, innermost last
+  const items: number[] = [];
+  let fence: RegExp | undefined;
+  let codeIndent: number | undefined;
+  // whether the line before is a paragraph's, which an indented line continues
+  let afterText = false;
+  for (const line of md.split(/(?<=\n)/)) {
+    const text = line.replace(/\n$/, '');
+    const indent = column(/^[ \t]*/.exec(text)![0]);
+    if (fence) {
+      if (fence.test(text)) [fence, afterText] = [undefined, false];
+    } else if (/^[ \t\r]*$/.test(text)) {
+      afterText = false;
+    } else if (codeIndent === undefined || indent < codeIndent) {
+      codeIndent = undefined;
+      const marker = /^([ \t]*(?:[-+*]|\d{1,9}[.)]))(?:([ \t]+)(?=[^ \t\r])|[ \t]*\r?$)/.exec(text);
+      if (!afterText || marker) while ((items.at(-1) ?? 0) > indent) items.pop();
+      const base = items.at(-1) ?? 0;
+      // fences as linkOrCode matches them, so that no part ends inside one
+      const opener = /^[ \t>]*(`{3,}(?=[^`]*$)|~{3,})/.exec(text)?.[1];
+      if (!afterText && indent >= base + 4) codeIndent = base + 4;
+      else if (opener) fence = new RegExp(`^[ \\t>]*${opener}${opener[0]}*[ \\t]*$`);
+      else {
+        if (marker && indent < base + 4) {
+          // past 1 to 4 columns of space; past 1 if there are more (the item starts with indented code) or none
+          const spaces = column(marker[1] + (marker[2] ?? '')) - column(marker[1]);
+          items.push(column(marker[1]) + (spaces > 4 || !spaces ? 1 : spaces));
+        }
+        afterText = !/^[ \t]*#{1,6}(?:[ \t]|\r?$)/.test(text);
+      }
+    }
+    if ((codeIndent !== undefined) !== (parts.length % 2 === 0)) parts.push('');
+    parts[parts.length - 1] += line;
+  }
+  return parts;
+}
+
+function within(dir: string, path: string): boolean {
+  const rel = relative(dir, path);
+  return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
+/**
+ * The root of the repository the library at `root` is in: `repository.directory` levels up, else the nearest folder
+ * from `root` up that has `.git`, else `root`.
+ */
+function repositoryRoot(root: string, repository: Package['repository']): string {
+  const directory = typeof repository === 'object' ? repository.directory : undefined;
+  const depth = directory?.split(/[\\/]/).filter((s) => s && s !== '.').length;
+  if (depth) return resolve(root, '../'.repeat(depth));
+  for (let dir = root; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.git'))) return dir;
+    if (dirname(dir) === dir) return root;
+  }
+}
+
+/** The URL of the `blob` (file) or `tree` (folder) page, or the `raw` file, for `path` in the repository at `repo`. */
+function repoFileUrl(repo: string, path: string, view: 'blob' | 'tree' | 'raw'): string {
+  // Bitbucket shows both files and folders under src/
+  const page = repo.startsWith('https://bitbucket.org/') && view !== 'raw' ? 'src' : view;
+  return `${repo}/${page}/HEAD/${path.split(sep).map(encodeURIComponent).join('/')}`;
+}
+
 interface Package {
   name: string;
   description?: string;
-  repository?: string | { url?: string };
+  repository?: string | { url?: string; directory?: string };
 }
 
 const shorthandHosts: Record<string, string> = {
