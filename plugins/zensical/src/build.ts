@@ -50,8 +50,8 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * moves from `<name>.md`, which shares the type page's URL, to `<name>.fun.md`, and links to it follow.
  * In README.md and the guides, an image of another file in the library, `srcset` ones too, gets a copy of it at the
  * same path in `docs/`, unless that path is the site's own; other links to files and folders in the repository, and
- * the images it can't copy, point to them at the web URL of package.json `repository`, if it has one. Links in code
- * stay as they are.
+ * the images it can't copy, point to them at the web URL of package.json `repository`, if it has one; links to the
+ * reference's files point to the site's copies, if it has them. Links in code stay as they are.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -105,7 +105,7 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
   // last, so the images it copies can't replace anything above
-  await linkRepoFiles(resolve(root), docs, pkg.repository);
+  await linkRepoFiles(resolve(root), docs, referenceDir, pkg.repository);
   await writeFile(toml, zensicalToml(pkg, siteUrl));
   return projectDir;
 }
@@ -242,13 +242,19 @@ async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }>
 }
 
 /**
- * Keeps the links and images in `docs`' README.md and guides to other files of the library at `root` working. An image,
- * also each in an <img> or <source> srcset, gets a copy of its file at the same path in `docs`, unless one of `docs`'
- * own entries is there; other links to files and folders in the repository, and the images it can't copy, point to
- * them at the `repository` web URL, if any.
+ * Keeps the links and images in `docs`' README.md and guides to other files of the library at `root` working. Links to
+ * the files of a platform's tree in `reference` point to their copies in `docs`, if it has them. An image, also each in
+ * an <img> or <source> srcset, gets a copy of its file at the same path in `docs`, unless one of `docs`' own entries is
+ * there; other links to files and folders in the repository, and the images it can't copy, point to them at the
+ * `repository` web URL, if any.
  * Links in code, to the site's pages, and to files that don't exist or are outside the repository stay as they are.
  */
-async function linkRepoFiles(root: string, docs: string, repository: Package['repository']): Promise<void> {
+async function linkRepoFiles(
+  root: string,
+  docs: string,
+  reference: string,
+  repository: Package['repository'],
+): Promise<void> {
   const repo = repoUrl(repository);
   const repoRoot = repositoryRoot(root, repository);
   const own = new Set(await readdir(docs));
@@ -272,6 +278,12 @@ async function linkRepoFiles(root: string, docs: string, repository: Package['re
       }
       const onSite = file === join(root, 'README.md') || within(join(root, 'guides'), file);
       if (onSite || !within(repoRoot, file)) return href;
+      // the reference may be generated in CI rather than committed, so the site's copy is the one sure to be there
+      const siteCopy = join(docs, relative(reference, file));
+      const inReference = platforms.some(([p]) => within(join(reference, p), file));
+      if (inReference && statSync(siteCopy, { throwIfNoEntry: false })?.isFile()) {
+        return urlPath(relative(join(docs, dirname(page)), siteCopy)) + suffix;
+      }
       const inLibrary = relative(root, file);
       if (image && stats.isFile() && within(root, file) && !own.has(inLibrary.split(sep)[0])) {
         copies.set(file, join(docs, inLibrary));
@@ -455,7 +467,12 @@ function repositoryRoot(root: string, repository: Package['repository']): string
 function repoFileUrl(repo: string, path: string, view: 'blob' | 'tree' | 'raw'): string {
   // Bitbucket shows both files and folders under src/
   const page = repo.startsWith('https://bitbucket.org/') && view !== 'raw' ? 'src' : view;
-  return `${repo}/${page}/HEAD/${path.split(sep).map(encodeURIComponent).join('/')}`;
+  return `${repo}/${page}/HEAD/${urlPath(path)}`;
+}
+
+/** The relative URL of the relative file path `path`. */
+function urlPath(path: string): string {
+  return path.split(sep).map(encodeURIComponent).join('/');
 }
 
 interface Package {

@@ -567,6 +567,39 @@ await test("doesn't copy an image over the site's own files, and links to Bitbuc
   assert.equal(readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'), '# my-lib');
 });
 
+await test("points links into the reference to the site's pages, and to the repo for a page the site leaves out", async () => {
+  const root = library();
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'my-lib', repository: 'github:me/my-lib' }));
+  mkdirSync(join(root, '.git'));
+  mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example'), { recursive: true });
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/com.example/index.md'), '# Package-level declarations');
+  mkdirSync(join(root, 'docs/reference/typescript/functions'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/_media'));
+  writeFileSync(join(root, 'docs/reference/typescript/README.md'), '# API');
+  writeFileSync(join(root, 'docs/reference/typescript/functions/greet it.md'), '# greet');
+  writeFileSync(join(root, 'docs/reference/typescript/_media/shot.png'), '');
+  writeFileSync(join(root, 'docs/reference/notes.md'), '');
+  writeFileSync(
+    join(root, 'README.md'),
+    '# my-lib\n\n[API](docs/reference/typescript/README.md), ' +
+      '[greet](./docs/reference/typescript/functions/greet%20it.md#returns "Greet"), ' +
+      '![shot](docs/reference/typescript/_media/shot.png), [package](docs/reference/kotlin/lib/com.example/index.md), ' +
+      '[Kotlin](docs/reference/kotlin/index.md), [TypeScript](docs/reference/typescript), [notes](docs/reference/notes.md)\n',
+  );
+  writeFileSync(join(root, 'guides/a.md'), '# A\n\n[API](../docs/reference/typescript/README.md#usage)\n');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const web = 'https://github.com/me/my-lib';
+  assert.equal(
+    readFileSync(join(out, 'docs/README.md'), 'utf8'),
+    '# my-lib\n\n[API](typescript/README.md), [greet](typescript/functions/greet%20it.md#returns "Greet"), ' +
+      '![shot](typescript/_media/shot.png), [package](kotlin/lib/com.example/index.md), ' +
+      `[Kotlin](${web}/blob/HEAD/docs/reference/kotlin/index.md), [TypeScript](${web}/tree/HEAD/docs/reference/typescript), ` +
+      `[notes](${web}/blob/HEAD/docs/reference/notes.md)\n`,
+  );
+  assert.equal(readFileSync(join(out, 'docs/guides/a.md'), 'utf8'), '# A\n\n[API](../typescript/README.md#usage)\n');
+  assert.ok(!existsSync(join(out, 'docs/docs')), 'no copy of the reference image');
+});
+
 await test("copies the srcset images of an <img> and a <picture>'s <source>, such as a dark-mode logo", async () => {
   const root = library();
   writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'my-lib', repository: 'github:me/my-lib' }));
