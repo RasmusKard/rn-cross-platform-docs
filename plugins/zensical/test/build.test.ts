@@ -167,6 +167,25 @@ await test('keeps the title of a Kotlin function named like its package', async 
   assert.match(readFileSync(join(out, 'docs/kotlin/lib/greet/greet.md'), 'utf8'), /^# greet\n/);
 });
 
+await test('keeps words apart in Kotlin table cells, not in code, and leaves tables of members out of search', async () => {
+  const root = library();
+  // a trimMargin string's lines start with `|`, like a table row's
+  const sample = '```kotlin\nHtml.fromHtml("Hello<br>world")\n"""\n|Hello<br>world\n""".trimMargin()\n```\n\n';
+  writeFileSync(
+    join(root, 'docs/reference/kotlin/index.md'),
+    '# T\n\n## Properties\n\n| Name | Summary |\n|---|---|\n' +
+      '| [x](x.md) | [androidJvm]<br>val x<br>The x, as in `"a<br>b"`. |\n\n## Functions\n\nNot a table.\n\n' +
+      `${sample}#### Parameters\n\nandroidJvm\n\n| | |\n|---|---|\n| a | One.<br>Two. |\n`,
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'),
+    '# T\n\n## Properties { data-search-exclude }\n\n| Name | Summary |\n|---|---|\n' +
+      '| [x](x.md) | val x<br> The x, as in `"a<br>b"`. |\n\n## Functions\n\nNot a table.\n\n' +
+      `${sample}#### Parameters\n\n| | |\n|---|---|\n| a | One.<br> Two. |\n`,
+  );
+});
+
 await test('orders guides as the README links them, then any rest, and keeps a guides/.nav.yml of its own', async () => {
   const root = library();
   writeFileSync(
@@ -332,7 +351,7 @@ await test('gives Kotlin enum Entries tables a header, without the repeated entr
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(
     readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'),
-    '# E\n\n## Entries\n\n| Name | Summary |\n|---|---|\n| [A](-a/index.md) | The first. |\n| [B](-b/index.md) | |\n' +
-      '| [C](-c/index.md) | [C](-c/index.md)(0xFF0000)<br>With an argument. |\n\n## Properties\n',
+    '# E\n\n## Entries { data-search-exclude }\n\n| Name | Summary |\n|---|---|\n| [A](-a/index.md) | The first. |\n' +
+      '| [B](-b/index.md) | |\n| [C](-c/index.md) | [C](-c/index.md)(0xFF0000)<br> With an argument. |\n\n## Properties\n',
   );
 });

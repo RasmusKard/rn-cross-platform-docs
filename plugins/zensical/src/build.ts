@@ -44,7 +44,8 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
  * Swift pages are labeled `swift`, TypeScript pages' Parameters and Returns headings become bold labels, and Kotlin
  * enum Entries tables get a Name and Summary header and lose the repeated entry name.
- * Kotlin constructors pages are titled `constructor`.
+ * Kotlin constructors pages are titled `constructor`, a space follows each line break (`<br>`) in Kotlin table cells,
+ * and Kotlin tables of members are left out of search.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -120,6 +121,8 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // package. Dokka marks each declaration and parameter table with its source set, androidJvm, the only one there is.
 // Dokka titles a class's constructors page, `-<class>/-<class>.md`, after the class, so search lists the class twice.
 // A type's folder starts with `-` (capitals are written `-x`); a package's member can be named like its package too.
+// Zensical's search drops Dokka's table cell line breaks (<br>) without a space, joining the words on either side.
+// Dokka's tables of members repeat what each member's own page says, so search would list every member twice.
 // DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
 // Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
 // is found under the member.
@@ -128,7 +131,12 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
     const md = await readFile(join(dir, page), 'utf8');
     const pkg = basename(dirname(page));
     let tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
-    if (platform === 'kotlin') tidy = tidy.replace(sourceSetHint, '').replace(entries, entriesTable);
+    if (platform === 'kotlin')
+      tidy = tidy
+        .replace(sourceSetHint, '')
+        .replace(entries, entriesTable)
+        .replace(lineBreak, (m) => (m === '<br>' ? '<br> ' : m))
+        .replace(memberTable, '$& { data-search-exclude }');
     if (platform === 'kotlin' && pkg.startsWith('-') && basename(page) === `${pkg}.md`)
       tidy = tidy.replace(/^# .+$/m, '# constructor');
     if (platform === 'typescript')
@@ -148,6 +156,10 @@ const entries = /^## Entries\n\n\| \| \|\n\|---\|---\|\n((?:\|.*\n?)+)/m;
 const entriesTable = (_table: string, rows: string) =>
   `## Entries\n\n| Name | Summary |\n|---|---|\n${rows.replace(/^(\| (\[[^\]]+\]\([^)]+\)) \| )\2(?:<br>| (?=\|$))/gm, '$1')}`;
 const sourceSetHint = /^\[androidJvm\]\\\n|\[androidJvm\]<br>|^androidJvm\n\n(?=\|)/gm;
+// a code block or span, kept as written, or a line break in a table row, the only place Dokka writes them
+const lineBreak = /^```[\s\S]*?^```$|`[^`\n]*`|(?<=^\|.*)<br>/gm;
+// the heading over a table of members (or packages), each row a link to its own page
+const memberTable = /^## (?:Packages|Types|Constructors|Properties|Functions|Entries)(?=\n\n\|)/gm;
 
 // keeps front matter; a page whose first `# ` line follows a code fence (no H1) stays whole
 function dropBeforeH1(md: string): string {

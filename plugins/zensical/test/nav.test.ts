@@ -58,7 +58,7 @@ await test('Kotlin: sections titled by index.md H1, lone pages unwrapped', async
 await test("Kotlin: an enum's entries in declaration order, without Dokka's entries, valueOf and values", async () => {
   const dir = tree({
     'lib/p/-mode/index.md':
-      '# Mode\n\nSee [OFF](-o-f-f/index.md).\n\n## Entries\n\n| | |\n|---|---|\n' +
+      '# Mode\n\nSee [OFF](-o-f-f/index.md).\n\n## Entries { data-search-exclude }\n\n| | |\n|---|---|\n' +
       '| [ON](-o-n/index.md) | Unlike [OFF](-o-f-f/index.md) |\n| [AUTO](-a-u-t-o/index.md) | |\n| [OFF](-o-f-f/index.md) | |\n\n' +
       '## Properties\n\n| Name | Summary |\n|---|---|\n| [entries](entries.md) | |\n\n' +
       '## Functions\n\n| Name | Summary |\n|---|---|\n| [describe](describe.md) | |\n| [valueOf](value-of.md) | |\n',
