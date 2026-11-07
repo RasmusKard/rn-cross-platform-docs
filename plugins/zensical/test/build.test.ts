@@ -16,6 +16,8 @@ function library(): string {
   return root;
 }
 
+const markdown = (...blocks: string[]) => `${blocks.join('\n\n')}\n`;
+
 await test('writes the config, inputs and nav for the platforms present', async () => {
   const root = library();
   writeFileSync(
@@ -276,7 +278,6 @@ await test('orders guides as the README links them, then any rest, and keeps a g
   writeFileSync(join(root, 'guides/c.md'), '# C');
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8')), { nav: ['b.md', 'a.md', '*'] });
-  assert.match(readFileSync(join(out, 'docs/extra.css'), 'utf8'), /^\.md-typeset h5 \{ text-transform: none; \}$/m);
   assert.match(readFileSync(join(out, 'zensical.toml'), 'utf8'), /^extra_css = \["extra\.css"\]$/m);
 
   rmSync(join(root, 'guides/c.md'));
@@ -441,6 +442,281 @@ await test("turns TypeDoc's Parameters and Returns headings into bold labels, ou
   );
   assert.equal(readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'), '# f\n\n#### Parameters\n');
   assert.equal(readFileSync(join(out, 'docs/guides/a.md'), 'utf8'), '# A\n\n## Returns\n');
+});
+
+await test('turns the headings inside each TypeScript member into labels, so search lists the member once', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/interfaces'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/type-aliases'));
+  // typedoc-plugin-markdown 4.14.1's pages for examples/expo-greeter, less their Defined in lines
+  writeFileSync(
+    join(root, 'docs/reference/typescript/interfaces/ExpoGreeterModule.md'),
+    markdown(
+      '# ExpoGreeterModule',
+      "The native module's API, available as the package's default export.",
+      '## Extends',
+      '- `NativeModule`\\<[`ExpoGreeterModuleEvents`](../type-aliases/ExpoGreeterModuleEvents.md)\\>',
+      '## Properties',
+      '### defaultName',
+      '> **defaultName**: `string`',
+      'The name `hello` greets when `options.name` is not given: `"world"`.',
+      '## Methods',
+      '### hello()',
+      '> **hello**(`options?`): `string`',
+      'Builds a greeting.',
+      '#### Parameters',
+      '##### options?',
+      '[`GreetingOptions`](../type-aliases/GreetingOptions.md)',
+      'Who to greet and how; omitted fields take their defaults.',
+      '#### Returns',
+      '`string`',
+      'The greeting, e.g. `"Hello, world."`.',
+      '#### Example',
+      '```ts\nExpoGreeter.hello({ name: \'Ada\', excited: true }); // "Hello, Ada!"\n```',
+      '***',
+      '### setValueAsync()',
+      '> **setValueAsync**(`value`): `Promise`\\<`void`\\>',
+      'Emits `onChange` with `value`.',
+      '#### Parameters',
+      '##### value',
+      '`string`',
+      '#### Returns',
+      '`Promise`\\<`void`\\>',
+    ),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/type-aliases/ExpoGreeterModuleEvents.md'),
+    markdown(
+      '# ExpoGreeterModuleEvents',
+      '> **ExpoGreeterModuleEvents** = `object`',
+      '## Properties',
+      '### onChange',
+      '> **onChange**: (`params`) => `void`',
+      '#### Parameters',
+      '##### params',
+      '[`ChangeEventPayload`](ChangeEventPayload.md)',
+      '#### Returns',
+      '`void`',
+    ),
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/interfaces/ExpoGreeterModule.md'), 'utf8'),
+    markdown(
+      '# ExpoGreeterModule',
+      "The native module's API, available as the package's default export.",
+      '**Extends**',
+      '- `NativeModule`\\<[`ExpoGreeterModuleEvents`](../type-aliases/ExpoGreeterModuleEvents.md)\\>',
+      '## Properties',
+      '### defaultName',
+      '> **defaultName**: `string`',
+      'The name `hello` greets when `options.name` is not given: `"world"`.',
+      '## Methods',
+      '### hello()',
+      '> **hello**(`options?`): `string`',
+      'Builds a greeting.',
+      '**Parameters**',
+      '**`options?`**',
+      '[`GreetingOptions`](../type-aliases/GreetingOptions.md)',
+      'Who to greet and how; omitted fields take their defaults.',
+      '**Returns**',
+      '`string`',
+      'The greeting, e.g. `"Hello, world."`.',
+      '**Example**',
+      '```ts\nExpoGreeter.hello({ name: \'Ada\', excited: true }); // "Hello, Ada!"\n```',
+      '***',
+      '### setValueAsync()',
+      '> **setValueAsync**(`value`): `Promise`\\<`void`\\>',
+      'Emits `onChange` with `value`.',
+      '**Parameters**',
+      '**`value`**',
+      '`string`',
+      '**Returns**',
+      '`Promise`\\<`void`\\>',
+    ),
+  );
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/type-aliases/ExpoGreeterModuleEvents.md'), 'utf8'),
+    markdown(
+      '# ExpoGreeterModuleEvents',
+      '> **ExpoGreeterModuleEvents** = `object`',
+      '## Properties',
+      '### onChange',
+      '> **onChange**: (`params`) => `void`',
+      '**Parameters**',
+      '**`params`**',
+      '[`ChangeEventPayload`](ChangeEventPayload.md)',
+      '**Returns**',
+      '`void`',
+    ),
+  );
+});
+
+await test("labels a TypeScript function or variable page's own headings, keeping the ids TypeDoc links to", async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/functions'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/variables'));
+  writeFileSync(
+    join(root, 'docs/reference/typescript/functions/greet.md'),
+    markdown(
+      '# Function: greet()',
+      '> **greet**\\<`T`\\>(`name`, `options?`): `object`',
+      '## Type Parameters',
+      '### T',
+      '`T` *extends* `string`',
+      '## Parameters',
+      '### name',
+      '`T`',
+      '### options?',
+      '#### loud?',
+      '`boolean`',
+      '## Returns',
+      '`object`',
+      '### text',
+      '> **text**: `string`',
+      '## Throws',
+      'When `name` is empty.',
+      '## Example',
+      '```md\n## Usage\n```',
+    ),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/variables/config.md'),
+    markdown(
+      '# Variable: config',
+      '> `const` **config**: `object`',
+      '## Type Declaration',
+      '### a',
+      '> **a**: `string`',
+      '### nested',
+      '> **nested**: `object`',
+      '#### nested.deep',
+      '> **deep**: `boolean`',
+    ),
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/functions/greet.md'), 'utf8'),
+    markdown(
+      '# Function: greet()',
+      '> **greet**\\<`T`\\>(`name`, `options?`): `object`',
+      '**Type Parameters**',
+      '**`T`**{ #t }',
+      '`T` *extends* `string`',
+      '**Parameters**',
+      '**`name`**',
+      '`T`',
+      '**`options?`**',
+      '**`loud?`**',
+      '`boolean`',
+      '**Returns**',
+      '`object`',
+      '**`text`**',
+      '> **text**: `string`',
+      '**Throws**',
+      'When `name` is empty.',
+      '**Example**',
+      '```md\n## Usage\n```',
+    ),
+  );
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/variables/config.md'), 'utf8'),
+    markdown(
+      '# Variable: config',
+      '> `const` **config**: `object`',
+      '**Type Declaration**',
+      '**`a`**{ #a }',
+      '> **a**: `string`',
+      '**`nested`**{ #nested }',
+      '> **nested**: `object`',
+      '**`nested.deep`**',
+      '> **deep**: `boolean`',
+    ),
+  );
+});
+
+await test('keeps the id Python-Markdown gave a TypeScript name with an accent, `cafe` for café', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/variables'), { recursive: true });
+  writeFileSync(
+    join(root, 'docs/reference/typescript/variables/menu.md'),
+    markdown(
+      '# Variable: menu',
+      '> `const` **menu**: `object`',
+      '## Type Declaration',
+      '### café',
+      '> **café**: `string`',
+    ),
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/variables/menu.md'), 'utf8'),
+    markdown(
+      '# Variable: menu',
+      '> `const` **menu**: `object`',
+      '**Type Declaration**',
+      '**`café`**{ #cafe }',
+      '> **café**: `string`',
+    ),
+  );
+});
+
+await test('keeps the headings of TypeScript constructors, accessors and enum members named like a section', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/classes'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/enumerations'));
+  writeFileSync(
+    join(root, 'docs/reference/typescript/classes/Greeter.md'),
+    markdown(
+      '# Class: Greeter',
+      '## Constructors',
+      '### Constructor',
+      '> **new Greeter**(`x`): `Greeter`',
+      '#### Parameters',
+      '##### x',
+      '`string`',
+      '#### Returns',
+      '`Greeter`',
+      '## Accessors',
+      '### size',
+      '#### Get Signature',
+      '> **get** **size**(): `number`',
+      '##### Returns',
+      '`number`',
+    ),
+  );
+  const enumPage = markdown(
+    '# Enumeration: Section',
+    '## Enumeration Members',
+    '### Example',
+    '> **Example**: `"example"`',
+    '***',
+    '### Returns',
+    '> **Returns**: `"returns"`',
+  );
+  writeFileSync(join(root, 'docs/reference/typescript/enumerations/Section.md'), enumPage);
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/classes/Greeter.md'), 'utf8'),
+    markdown(
+      '# Class: Greeter',
+      '## Constructors',
+      '### Constructor',
+      '> **new Greeter**(`x`): `Greeter`',
+      '**Parameters**',
+      '**`x`**',
+      '`string`',
+      '**Returns**',
+      '`Greeter`',
+      '## Accessors',
+      '### size',
+      '**Get Signature**',
+      '> **get** **size**(): `number`',
+      '**Returns**',
+      '`number`',
+    ),
+  );
+  assert.equal(readFileSync(join(out, 'docs/typescript/enumerations/Section.md'), 'utf8'), enumPage);
 });
 
 await test('gives Kotlin enum Entries tables a header, without the repeated entry name', async () => {

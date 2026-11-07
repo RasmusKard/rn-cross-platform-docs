@@ -93,7 +93,7 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - The TypeScript nav is typedoc-plugin-markdown's navigation, so TypeDoc's grouping, category and sorting options and
   its `navigation` options shape it.
 - Swift deprecation doesn't show: DocC only writes it in a metadata comment.
-- TypeDoc's Parameters and Returns headings become bold labels, so search lists each member once, not once more for
-  its parameters and its return value.
+- TypeDoc's headings inside a member, such as Parameters, each parameter's name, Returns and Example, become bold
+  labels, so search lists each member once, with its parameters, return value and examples.
 - If TypeDoc also copies the guides (`documents/`), those copies stay out of the nav, but search lists each guide twice
   and their links outside `guides/` break.

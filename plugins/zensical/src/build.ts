@@ -42,8 +42,9 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Writes `zensical.toml` and `docs/` (README.md, guides/, one tree per platform, `.nav.yml` files) to `options.out`.
  * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), Kotlin pages lose
  * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
- * Swift pages are labeled `swift`, TypeScript pages' Parameters and Returns headings become bold labels, and Kotlin
- * enum Entries tables get a Name and Summary header and lose the repeated entry name.
+ * Swift pages are labeled `swift`, TypeScript pages' headings inside each member, such as Parameters, parameter
+ * names and Example, become labels, and Kotlin enum Entries tables get a Name and Summary header and lose the
+ * repeated entry name.
  * Kotlin constructors pages are titled `constructor`, a space follows each line break (`<br>`) in Kotlin table cells,
  * and Kotlin tables of members are left out of search.
  * Kotlin signatures are set as code, without a link to their own page. A Kotlin function named like a type beside it
@@ -91,13 +92,12 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
     await writeFile(join(docs, p, '.nav.yml'), JSON.stringify(await treeNav(join(docs, p), p)));
   }
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
-  // the theme sets h5 in capitals, which TypeDoc uses for parameter names, and its break-word splits identifiers in
-  // table cells, where a wide table scrolls instead; Dokka's tables of parameters and exceptions have empty header
-  // rows; the sidebar cuts off a label that is one long identifier, where it can wrap instead; Kotlin signatures are
-  // paragraphs, to keep their links, set like code blocks
+  // the theme's break-word splits identifiers in table cells, where a wide table scrolls instead; Dokka's tables of
+  // parameters and exceptions have empty header rows; the sidebar cuts off a label that is one long identifier, where
+  // it can wrap instead; Kotlin signatures are paragraphs, to keep their links, set like code blocks
   await writeFile(
     join(docs, 'extra.css'),
-    '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
+    '.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
       '.md-typeset table code { word-break: normal; }\n.md-nav--primary .md-ellipsis { overflow-wrap: anywhere; }\n' +
       '.md-typeset .kotlin-signature { padding: .8em 1.25em; overflow-x: auto; font-family: var(--md-code-font-family); ' +
       'font-size: .85em; color: var(--md-code-fg-color); background-color: var(--md-code-bg-color); border-radius: .4rem; }\n',
@@ -138,8 +138,8 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // Dokka writes a function named like a type beside it (Kotlin's factory-function idiom, a capitalized @Composable) to
 // `<name>.md`, which with directory URLs is served where the type's `<name>/index.md` is.
 // DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
-// Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
-// is found under the member.
+// headings inside a member, such as Parameters, each parameter's name, Returns and Example, would each be a search
+// entry, filing the return value under the last parameter's name; as labels, their text is found under the member.
 async function tidyPages(dir: string, platform: string): Promise<void> {
   const namesakes = platform === 'kotlin' ? await typeNamesakes(dir) : new Set<string>();
   for await (const page of glob('**/*.md', { cwd: dir })) {
@@ -159,8 +159,7 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
       tidy = tidy.replace(/^# .+$/m, '# constructor');
     if (namesakes.size)
       tidy = tidy.replace(pageLink, (href) => (namesakes.has(join(dirname(page), href)) ? funPage(href) : href));
-    if (platform === 'typescript')
-      tidy = tidy.replace(typedocLabel, (m, label?: string) => (label ? `**${label}**` : m));
+    if (platform === 'typescript') tidy = typedocLabels(tidy);
     if (platform === 'swift')
       tidy = tidy.replace(codeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
     await writeFile(join(dir, page), tidy);
@@ -183,8 +182,78 @@ const funPage = (page: string) => `${page.slice(0, -3)}.fun.md`;
 // a link's target, up to its anchor
 const pageLink = /(?<=\]\()[^)#]+/g;
 const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
-// a code block, so a heading in an example stays, or one of TypeDoc's labels
-const typedocLabel = /^```[\s\S]*?^```$|^#{2,6} (Parameters|Returns)$/gm;
+// typedoc-plugin-markdown's headings in a member or in the page's own, in English
+const typedocSections = new Set([
+  'Parameters',
+  'Type Parameters',
+  'Returns',
+  'Type Declaration',
+  'Union Members',
+  'Type Literal',
+  'Function',
+  'Call Signature',
+  'Get Signature',
+  'Set Signature',
+  'Index Signature',
+  'Indexable',
+  'Hierarchy',
+  'Extends',
+  'Extended by',
+  'Implements',
+  'Implementation of',
+  'Inherited from',
+  'Overrides',
+  // block tags
+  'Example',
+  'Examples',
+  'Remarks',
+  'See',
+  'Throws',
+  'Deprecated',
+  'Default Value',
+  'Default',
+  'Since',
+]);
+// a code block, so a heading in an example stays, or a heading and the blockquote line after it, if any
+const typedocHeading = /^```[\s\S]*?^```$|^(#{2,6}) (.+)$(?=(?:\n+(> .*))?)/gm;
+
+/** `md` with the headings inside each member as labels: TypeDoc's sections, and any heading under one or a member's. */
+function typedocLabels(md: string): string {
+  let member = 7; // headings deeper than this level are inside a member
+  let names = 7; // and deeper than this, in a Parameters or Type Parameters section, are names
+  let linked = false; // in the page's own Type Parameters or Type Declaration, whose names TypeDoc links to by id
+  return md.replace(typedocHeading, (heading, hashes?: string, title = '', next = '') => {
+    if (!hashes) return heading;
+    const level = hashes.length;
+    const inside = level > member;
+    // a member's heading is followed by its declaration naming it, `b.c` as `c`: an enum member may look like a section
+    const declared = next.includes(`**${/^(?:~~)?(?:.*\.)?([^(~.]+)/.exec(title)?.[1]}**`);
+    const section = typedocSections.has(title) && (inside || !declared);
+    if (!inside) member = declared || section ? level : 7;
+    if (level <= names) names = 7;
+    if (section && title.endsWith('Parameters')) names = level;
+    if (level === 2) linked = section && /^Type (?:Parameters|Declaration)$/.test(title);
+    if (!inside) return section ? `**${title}**` : heading;
+    // neither a parameter's name nor a member of the member's type: a section, such as one of a custom block tag
+    if (section || (level <= names && !declared)) return `**${title}**`;
+    return nameLabel(title, linked && level === 3);
+  });
+}
+
+// a name in code, as in the signature; TypeDoc escapes Markdown in it and strikes out a deprecated member's
+const nameLabel = (title: string, id: boolean) =>
+  title.replace(/^(~~)?(.+?)\1$/, (_, strike = '', name: string) => {
+    const code = name.replace(/\\(.)/g, '$1');
+    // Python-Markdown's slug of the heading
+    const slug = code
+      .normalize('NFKD')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .toLowerCase()
+      .replace(/[-\s]+/g, '-');
+    return `${strike}**\`${code}\`**${strike}${id && slug ? `{ #${slug} }` : ''}`;
+  });
+
 // Dokka's enum Entries table: no header, and each row repeats the entry's name as its signature
 const entries = /^## Entries\n\n\| \| \|\n\|---\|---\|\n((?:\|.*\n?)+)/m;
 // an entry with arguments or annotations keeps its signature
@@ -560,7 +629,7 @@ def_list = {}
 footnotes = {}
 md_in_html = {}
 toc.permalink = true
-# member headings only; TypeDoc's Type Parameters, Example and See headings under each member would crowd the page TOC
+# member headings only; headings under a member would crowd the page TOC
 toc.toc_depth = 3
 pymdownx.arithmatex.generic = true
 pymdownx.betterem = {}
