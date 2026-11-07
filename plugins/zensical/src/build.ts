@@ -46,6 +46,7 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * enum Entries tables get a Name and Summary header and lose the repeated entry name.
  * Kotlin constructors pages are titled `constructor`, a space follows each line break (`<br>`) in Kotlin table cells,
  * and Kotlin tables of members are left out of search.
+ * Kotlin signatures are set as code, without a link to their own page.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -87,11 +88,14 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   await writeFile(join(docs, '.nav.yml'), JSON.stringify({ nav }));
   // the theme sets h5 in capitals, which TypeDoc uses for parameter names, and its break-word splits identifiers in
   // table cells, where a wide table scrolls instead; Dokka's tables of parameters and exceptions have empty header
-  // rows; the sidebar cuts off a label that is one long identifier, where it can wrap instead
+  // rows; the sidebar cuts off a label that is one long identifier, where it can wrap instead; Kotlin signatures are
+  // paragraphs, to keep their links, set like code blocks
   await writeFile(
     join(docs, 'extra.css'),
     '.md-typeset h5 { text-transform: none; }\n.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
-      '.md-typeset table code { word-break: normal; }\n.md-nav--primary .md-ellipsis { overflow-wrap: anywhere; }\n',
+      '.md-typeset table code { word-break: normal; }\n.md-nav--primary .md-ellipsis { overflow-wrap: anywhere; }\n' +
+      '.md-typeset .kotlin-signature { padding: .8em 1.25em; overflow-x: auto; font-family: var(--md-code-font-family); ' +
+      'font-size: .85em; color: var(--md-code-fg-color); background-color: var(--md-code-bg-color); border-radius: .4rem; }\n',
   );
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
@@ -123,6 +127,7 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // A type's folder starts with `-` (capitals are written `-x`); a package's member can be named like its package too.
 // Zensical's search drops Dokka's table cell line breaks (<br>) without a space, joining the words on either side.
 // Dokka's tables of members repeat what each member's own page says, so search would list every member twice.
+// Dokka writes a declaration as a paragraph, set like the prose around it, whose name links to the page it's on.
 // DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
 // Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
 // is found under the member.
@@ -131,6 +136,9 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
     const md = await readFile(join(dir, page), 'utf8');
     const pkg = basename(dirname(page));
     let tidy = dropBeforeH1(md).replace(/^# Package-level declarations$/m, (h) => (pkg === '.' ? h : `# ${pkg}`));
+    // the root and package pages declare nothing: their source set mark comes before a description
+    if (platform === 'kotlin' && page !== 'index.md' && !/^# Package-level declarations$/m.test(md))
+      tidy = tidy.replace(signature, codeSignature(basename(page)));
     if (platform === 'kotlin')
       tidy = tidy
         .replace(sourceSetHint, '')
@@ -160,6 +168,22 @@ const sourceSetHint = /^\[androidJvm\]\\\n|\[androidJvm\]<br>|^androidJvm\n\n(?=
 const lineBreak = /^```[\s\S]*?^```$|`[^`\n]*`|(?<=^\|.*)<br>/gm;
 // the heading over a table of members (or packages), each row a link to its own page
 const memberTable = /^## (?:Packages|Types|Constructors|Properties|Functions|Entries)(?=\n\n\|)/gm;
+// a declaration after its source set mark or, for a type with inheritors, which gets none, after the H1: its
+// annotations, each a paragraph of its own, then one line
+const signature = /^(# .+\n\n|\[androidJvm\]\\\n\n?)((?:@.+\n\n)*)(?![#|]|\[androidJvm\]\\$)(.+)/gm;
+// an annotation within a declaration (a primary constructor's, a parameter's, a type's), which Dokka runs into its
+// neighbors: `class [T](index.md)@[JvmOverloads](…)constructor(`
+const inlineAnnotation = /(?<=[\w)]|&gt;)(?=@\[)|(?<=@\[[^\]]*\]\([^)]*\)(?:\([^)]*\))?)(?=[\w@[])/g;
+// a paragraph styled as code, since a code block can't hold links; links to `self`, the page itself, go
+const codeSignature = (self: string) => (m: string, before: string, annotations: string, line: string, at: number) => {
+  // a level-1 heading in a description isn't the page's H1
+  if (before.startsWith('# ') && at > 0) return m;
+  // the space keeps search from joining the words on either side of a line break, as in a table cell
+  const code = [...annotations.split('\n\n').filter(Boolean), line.trimEnd().replace(inlineAnnotation, ' ')]
+    .join('<br> ')
+    .replace(/\[([^\]]*)\]\(([^)]*)\)/g, (link, text: string, href: string) => (href === self ? text : link));
+  return `${before.startsWith('# ') ? before : ''}<p class="kotlin-signature" markdown="span">${code}</p>`;
+};
 
 // keeps front matter; a page whose first `# ` line follows a code fence (no H1) stays whole
 function dropBeforeH1(md: string): string {
