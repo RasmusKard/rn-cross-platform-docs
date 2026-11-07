@@ -144,9 +144,12 @@ await test("titles a Kotlin class's constructors page constructor, not after the
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(
     readFileSync(join(out, 'docs/kotlin/lib/com.example/-t/-t.md'), 'utf8'),
-    '# constructor\n\nconstructor()\n',
+    '# constructor\n\n<p class="kotlin-signature" markdown="span">constructor()</p>\n',
   );
-  assert.equal(readFileSync(join(out, 'docs/kotlin/lib/com.example/-t/index.md'), 'utf8'), '# T\n\nclass T\n');
+  assert.equal(
+    readFileSync(join(out, 'docs/kotlin/lib/com.example/-t/index.md'), 'utf8'),
+    '# T\n\n<p class="kotlin-signature" markdown="span">class T</p>\n',
+  );
   assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/kotlin/.nav.yml'), 'utf8')), {
     nav: ['lib/com.example/-t/index.md', 'lib/com.example/-t/-t.md'],
   });
@@ -176,6 +179,50 @@ await test('keeps words apart in Kotlin table cells, not in code, and leaves tab
     '# T\n\n## Properties { data-search-exclude }\n\n| Name | Summary |\n|---|---|\n' +
       '| [x](x.md) | val x<br> The x, as in `"a<br>b"`. |\n\n## Functions\n\nNot a table.\n\n' +
       `${sample}#### Parameters\n\n| | |\n|---|---|\n| a | One.<br> Two. |\n`,
+  );
+});
+
+await test('shows Kotlin signatures as code, without a link to their own page', async () => {
+  const root = library();
+  const pkg = join(root, 'docs/reference/kotlin/lib/p');
+  mkdirSync(join(pkg, '-t/-a'), { recursive: true });
+  writeFileSync(join(pkg, 'index.md'), '# Package-level declarations\n\n[androidJvm]\\\nThe package.\n');
+  // a type with inheritors gets no source set mark; its type parameter links to its page
+  writeFileSync(
+    join(pkg, '-t/index.md'),
+    '# T\n\n@[A](../-a/index.md)\n\nopen class [T](index.md)&lt;[R](index.md)&gt;@[A](../-a/index.md)constructor(r: [R](index.md)) \n\n' +
+      'A type.\n\n# Not the H1\n\nText.\n',
+  );
+  writeFileSync(
+    join(pkg, '-t/f.md'),
+    '# f\n\n[androidJvm]\\\n\n@[A](../-a/index.md)(x = 1)\n\n@[B](../-b/index.md)\n\n' +
+      'fun [~~f~~](f.md)(@[A](../-a/index.md)x: [T](index.md))\n\nOne.\n\n[androidJvm]\\\nfun [f](f.md)()\n\nTwo.\n',
+  );
+  writeFileSync(
+    join(pkg, '-t/-a/index.md'),
+    '# A\n\n[androidJvm]\\\n@[B](../../-b/index.md)\n\n[A](index.md)\n\nAn entry.\n',
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const p = join(out, 'docs/kotlin/lib/p');
+  const code = '<p class="kotlin-signature" markdown="span">';
+  assert.equal(readFileSync(join(p, 'index.md'), 'utf8'), '# p\n\nThe package.\n');
+  assert.equal(
+    readFileSync(join(p, '-t/index.md'), 'utf8'),
+    `# T\n\n${code}@[A](../-a/index.md)<br> open class T&lt;R&gt; @[A](../-a/index.md) constructor(r: R)</p>\n\n` +
+      'A type.\n\n# Not the H1\n\nText.\n',
+  );
+  assert.equal(
+    readFileSync(join(p, '-t/f.md'), 'utf8'),
+    `# f\n\n${code}@[A](../-a/index.md)(x = 1)<br> @[B](../-b/index.md)<br> fun ~~f~~(@[A](../-a/index.md) x: [T](index.md))</p>` +
+      `\n\nOne.\n\n${code}fun f()</p>\n\nTwo.\n`,
+  );
+  assert.equal(
+    readFileSync(join(p, '-t/-a/index.md'), 'utf8'),
+    `# A\n\n${code}@[B](../../-b/index.md)<br> A</p>\n\nAn entry.\n`,
+  );
+  assert.match(
+    readFileSync(join(out, 'docs/extra.css'), 'utf8'),
+    /^\.md-typeset \.kotlin-signature \{ .*font-family: var\(--md-code-font-family\);.* \}$/m,
   );
 });
 
