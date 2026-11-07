@@ -563,11 +563,11 @@ await test('turns the headings inside each TypeScript member into labels, so sea
       '**Extends**',
       '- `NativeModule`\\<[`ExpoGreeterModuleEvents`](../type-aliases/ExpoGreeterModuleEvents.md)\\>',
       '## Properties',
-      '### defaultName',
+      '### defaultName { #defaultname }',
       '> **defaultName**: `string`',
       'The name `hello` greets when `options.name` is not given: `"world"`.',
       '## Methods',
-      '### hello()',
+      '### hello() { #hello }',
       '> **hello**(`options?`): `string`',
       'Builds a greeting.',
       '**Parameters**',
@@ -580,7 +580,7 @@ await test('turns the headings inside each TypeScript member into labels, so sea
       '**Example**',
       '```ts\nExpoGreeter.hello({ name: \'Ada\', excited: true }); // "Hello, Ada!"\n```',
       '***',
-      '### setValueAsync()',
+      '### setValueAsync() { #setvalueasync }',
       '> **setValueAsync**(`value`): `Promise`\\<`void`\\>',
       'Emits `onChange` with `value`.',
       '**Parameters**',
@@ -596,7 +596,7 @@ await test('turns the headings inside each TypeScript member into labels, so sea
       '# ExpoGreeterModuleEvents',
       '> **ExpoGreeterModuleEvents** = `object`',
       '## Properties',
-      '### onChange',
+      '### onChange { #onchange }',
       '> **onChange**: (`params`) => `void`',
       '**Parameters**',
       '**`params`**',
@@ -690,32 +690,6 @@ await test("labels a TypeScript function or variable page's own headings, keepin
   );
 });
 
-await test('keeps the id Python-Markdown gave a TypeScript name with an accent, `cafe` for café', async () => {
-  const root = library();
-  mkdirSync(join(root, 'docs/reference/typescript/variables'), { recursive: true });
-  writeFileSync(
-    join(root, 'docs/reference/typescript/variables/menu.md'),
-    markdown(
-      '# Variable: menu',
-      '> `const` **menu**: `object`',
-      '## Type Declaration',
-      '### café',
-      '> **café**: `string`',
-    ),
-  );
-  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
-  assert.equal(
-    readFileSync(join(out, 'docs/typescript/variables/menu.md'), 'utf8'),
-    markdown(
-      '# Variable: menu',
-      '> `const` **menu**: `object`',
-      '**Type Declaration**',
-      '**`café`**{ #cafe }',
-      '> **café**: `string`',
-    ),
-  );
-});
-
 await test('keeps the headings of TypeScript constructors, accessors and enum members named like a section', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/typescript/classes'), { recursive: true });
@@ -740,23 +714,27 @@ await test('keeps the headings of TypeScript constructors, accessors and enum me
       '`number`',
     ),
   );
-  const enumPage = markdown(
-    '# Enumeration: Section',
-    '## Enumeration Members',
-    '### Example',
-    '> **Example**: `"example"`',
-    '***',
-    '### Returns',
-    '> **Returns**: `"returns"`',
+  const enumPage = (example: string, returns: string) =>
+    markdown(
+      '# Enumeration: Section',
+      '## Enumeration Members',
+      example,
+      '> **Example**: `"example"`',
+      '***',
+      returns,
+      '> **Returns**: `"returns"`',
+    );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/enumerations/Section.md'),
+    enumPage('### Example', '### Returns'),
   );
-  writeFileSync(join(root, 'docs/reference/typescript/enumerations/Section.md'), enumPage);
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(
     readFileSync(join(out, 'docs/typescript/classes/Greeter.md'), 'utf8'),
     markdown(
       '# Class: Greeter',
       '## Constructors',
-      '### Constructor',
+      '### Constructor { #constructor }',
       '> **new Greeter**(`x`): `Greeter`',
       '**Parameters**',
       '**`x`**',
@@ -764,14 +742,312 @@ await test('keeps the headings of TypeScript constructors, accessors and enum me
       '**Returns**',
       '`Greeter`',
       '## Accessors',
-      '### size',
+      '### size { #size }',
       '**Get Signature**',
       '> **get** **size**(): `number`',
       '**Returns**',
       '`number`',
     ),
   );
-  assert.equal(readFileSync(join(out, 'docs/typescript/enumerations/Section.md'), 'utf8'), enumPage);
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/enumerations/Section.md'), 'utf8'),
+    enumPage('### Example { #example }', '### Returns { #returns }'),
+  );
+});
+
+await test('gives a repeated TypeScript heading the id TypeDoc links to, `a-1`', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/classes'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/type-aliases'));
+  // typedoc-plugin-markdown 4.14.1's pages, less their Defined in lines, for a class with a static and an instance
+  // create(), and a type alias with a type parameter T and a property t
+  const store = (...ids: string[]) =>
+    markdown(
+      '# Class: Store',
+      'See [the static create](#create-2) and [step-1](#step-1).',
+      '## Properties',
+      `### step-1${ids[0]}`,
+      '> **step-1**: `number` = `1`',
+      '## Methods',
+      `### create()${ids[1]}`,
+      '> **create**(): `Store`',
+      '***',
+      `### create-1()${ids[2]}`,
+      '> **create-1**(): `void`',
+      '***',
+      `### create()${ids[3]}`,
+      '> `static` **create**(): `Store`',
+    );
+  writeFileSync(join(root, 'docs/reference/typescript/classes/Store.md'), store('', '', '', ''));
+  writeFileSync(
+    join(root, 'docs/reference/typescript/type-aliases/Pair.md'),
+    markdown(
+      '# Type Alias: Pair\\<T\\>',
+      '> **Pair**\\<`T`\\> = `object`',
+      'See [Pair.t](#t-1).',
+      '## Type Parameters',
+      '### T',
+      '`T`',
+      '## Properties',
+      '### t',
+      '> **t**: `T`',
+    ),
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/classes/Store.md'), 'utf8'),
+    store(' { #step-1 }', ' { #create }', ' { #create-1 }', ' { #create-2 }'),
+  );
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/type-aliases/Pair.md'), 'utf8'),
+    markdown(
+      '# Type Alias: Pair\\<T\\>',
+      '> **Pair**\\<`T`\\> = `object`',
+      'See [Pair.t](#t-1).',
+      '**Type Parameters**',
+      '**`T`**{ #t }',
+      '`T`',
+      '## Properties',
+      '### t { #t-1 }',
+      '> **t**: `T`',
+    ),
+  );
+});
+
+await test("numbers TypeScript ids as TypeDoc does, counting a method's type parameters but no group heading", async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/classes'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/interfaces'));
+  // typedoc-plugin-markdown 4.14.1's pages, less their Parameters and Returns, for a class with methods map<T>(),
+  // get<Value>(), t() and value(), and an interface with a property named properties
+  writeFileSync(
+    join(root, 'docs/reference/typescript/classes/Store.md'),
+    markdown(
+      '# Class: Store',
+      'See [Store.t](#t-1) and [Store.value](#value-1).',
+      '## Methods',
+      '### get()',
+      '> **get**\\<`Value`\\>(`key`): `Value` \\| `undefined`',
+      '#### Type Parameters',
+      '##### Value',
+      '`Value`',
+      '***',
+      '### map()',
+      '> **map**\\<`T`\\>(`f`): `T`',
+      '#### Type Parameters',
+      '##### T',
+      '`T`',
+      '***',
+      '### t()',
+      '> **t**(`key`): `string`',
+      '***',
+      '### value()',
+      '> **value**(): `number`',
+    ),
+  );
+  const props = (heading: string) =>
+    markdown(
+      '# Interface: Props',
+      'See [Props.properties](#properties).',
+      '## Properties',
+      heading,
+      '> **properties**: `string`',
+    );
+  writeFileSync(join(root, 'docs/reference/typescript/interfaces/Props.md'), props('### properties'));
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/classes/Store.md'), 'utf8'),
+    markdown(
+      '# Class: Store',
+      'See [Store.t](#t-1) and [Store.value](#value-1).',
+      '## Methods',
+      '### get() { #get }',
+      '> **get**\\<`Value`\\>(`key`): `Value` \\| `undefined`',
+      '**Type Parameters**',
+      '**`Value`**{ #value }',
+      '`Value`',
+      '***',
+      '### map() { #map }',
+      '> **map**\\<`T`\\>(`f`): `T`',
+      '**Type Parameters**',
+      '**`T`**{ #t }',
+      '`T`',
+      '***',
+      '### t() { #t-1 }',
+      '> **t**(`key`): `string`',
+      '***',
+      '### value() { #value-1 }',
+      '> **value**(): `number`',
+    ),
+  );
+  // Python-Markdown gives the group heading another id, `properties_1`
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/interfaces/Props.md'), 'utf8'),
+    props('### properties { #properties }'),
+  );
+});
+
+await test('gives TypeScript names with an accent the ids TypeDoc links to, `café` apart from `cafe`', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/classes'), { recursive: true });
+  const page = (property: string, method: string) =>
+    markdown(
+      '# Class: Menu',
+      'See [Menu.café](#café) and [Menu.cafe](#cafe).',
+      '## Properties',
+      property,
+      '> **café**: `number`',
+      '## Methods',
+      method,
+      '> **cafe**(): `void`',
+    );
+  writeFileSync(join(root, 'docs/reference/typescript/classes/Menu.md'), page('### café', '### cafe()'));
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/classes/Menu.md'), 'utf8'),
+    page('### café { #café }', '### cafe() { #cafe }'),
+  );
+});
+
+await test('counts the TypeScript signatures TypeDoc anchors without a heading of their own', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/classes'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/interfaces'));
+  mkdirSync(join(root, 'docs/reference/typescript/functions'));
+  // typedoc-plugin-markdown 4.14.1's pages, less their comments, Parameters and Returns: a function t<T>(), an
+  // interface Calls with two call signatures and a property calls, and classes whose members are named like what
+  // TypeDoc names the signatures of a constructor, an accessor and an index signature
+  writeFileSync(
+    join(root, 'docs/reference/typescript/functions/t.md'),
+    markdown('# Function: t()', '> **t**\\<`T`\\>(`x`): `T`', '## Type Parameters', '### T', '`T`'),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/interfaces/Calls.md'),
+    markdown(
+      '# Interface: Calls()',
+      '## Call Signature',
+      '> **Calls**(`x`): `string`',
+      '## Call Signature',
+      '> **Calls**\\<`T`\\>(`x`): `T`',
+      '### Type Parameters',
+      '#### T',
+      '`T`',
+      '## Properties',
+      '### calls',
+      '> **calls**: `number`',
+    ),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/classes/Foo.md'),
+    markdown(
+      '# Class: Foo\\<T\\>',
+      '## Type Parameters',
+      '### T',
+      '`T`',
+      '## Constructors',
+      '### Constructor',
+      '> **new Foo**\\<`T`\\>(): `Foo`\\<`T`\\>',
+      '## Properties',
+      '### constructorfoot',
+      '> **constructorfoot**: `number` = `2`',
+      '## Accessors',
+      '### size',
+      '#### Get Signature',
+      '> **get** **size**(): `T` \\| `undefined`',
+      '#### Set Signature',
+      '> **set** **size**(`v`): `void`',
+      '## Methods',
+      '### sizesize()',
+      '> **sizesize**(): `void`',
+    ),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/classes/Idx.md'),
+    markdown(
+      '# Class: Idx',
+      'See [Idx.\\_\\_index](#__index-1).',
+      '## Indexable',
+      '> \\[`key`: `string`\\]: `unknown`',
+      '## Properties',
+      '### \\_\\_index',
+      '> **\\_\\_index**: `number` = `1`',
+    ),
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const read = (page: string) => readFileSync(join(out, 'docs/typescript', page), 'utf8');
+  assert.match(read('functions/t.md'), /^\*\*`T`\*\*\{ #t-1 \}$/m);
+  assert.match(read('interfaces/Calls.md'), /^\*\*`T`\*\*\{ #t \}\n[\s\S]*^### calls \{ #calls-2 \}$/m);
+  assert.match(
+    read('classes/Foo.md'),
+    /^### constructorfoot \{ #constructorfoot-1 \}\n[\s\S]*^### sizesize\(\) \{ #sizesize-2 \}$/m,
+  );
+  assert.match(read('classes/Idx.md'), /^### \\_\\_index \{ #__index-1 \}$/m);
+});
+
+await test('gives TypeScript type parameters and type declaration members ids only where TypeDoc anchors them', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/variables'), { recursive: true });
+  mkdirSync(join(root, 'docs/reference/typescript/interfaces'));
+  mkdirSync(join(root, 'docs/reference/typescript/type-aliases'));
+  // typedoc-plugin-markdown 4.14.1's pages, less their comments, Parameters and Returns: a variable of a function
+  // type, one of an object type, an interface with a property of a function type, and an intersection type alias
+  writeFileSync(
+    join(root, 'docs/reference/typescript/variables/handler.md'),
+    markdown(
+      '# Variable: handler',
+      '> `const` **handler**: \\<`H`\\>(`h`) => `void`',
+      '## Type Parameters',
+      '### H',
+      '`H`',
+    ),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/variables/obj.md'),
+    markdown(
+      '# Variable: obj',
+      '> `const` **obj**: `object`',
+      '## Type Declaration',
+      '### g',
+      '#### Get Signature',
+      '> **get** **g**(): `number`',
+      '### m()',
+      '> **m**\\<`N`\\>(`n`): `N`',
+      '#### Type Parameters',
+      '##### N',
+      '`N`',
+    ),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/interfaces/Fns.md'),
+    markdown(
+      '# Interface: Fns',
+      '## Properties',
+      '### on',
+      '> **on**: \\<`E`\\>(`e`) => `void`',
+      '#### Type Parameters',
+      '##### E',
+      '`E`',
+    ),
+  );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/type-aliases/I.md'),
+    markdown(
+      '# Type Alias: I',
+      '> **I** = [`Ext`](../interfaces/Ext.md) & `object`',
+      '## Type Declaration',
+      '### b',
+      '> **b**: `string`',
+    ),
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const read = (page: string) => readFileSync(join(out, 'docs/typescript', page), 'utf8');
+  assert.match(read('variables/handler.md'), /^\*\*`H`\*\*\{ #__typeh \}$/m);
+  assert.match(
+    read('variables/obj.md'),
+    /^\*\*`g`\*\*\{ #g \}\n[\s\S]*^\*\*`m\(\)`\*\*\{ #m \}\n[\s\S]*^\*\*`N`\*\*\{ #mn \}$/m,
+  );
+  assert.match(read('interfaces/Fns.md'), /^### on \{ #on \}\n[\s\S]*^\*\*`E`\*\*$/m);
+  assert.match(read('type-aliases/I.md'), /^\*\*`b`\*\*$/m);
 });
 
 await test('gives Kotlin enum Entries tables a header, without the repeated entry name', async () => {
