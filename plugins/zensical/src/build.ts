@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, glob, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, glob, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { platformNav, typescriptNav, type NavItem, type TypeDocNavItem } from './nav.ts';
 
@@ -46,7 +46,8 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * enum Entries tables get a Name and Summary header and lose the repeated entry name.
  * Kotlin constructors pages are titled `constructor`, a space follows each line break (`<br>`) in Kotlin table cells,
  * and Kotlin tables of members are left out of search.
- * Kotlin signatures are set as code, without a link to their own page.
+ * Kotlin signatures are set as code, without a link to their own page. A Kotlin function named like a type beside it
+ * moves from `<name>.md`, which shares the type page's URL, to `<name>.fun.md`, and links to it follow.
  * Refuses to replace an existing non-empty directory it didn't write. Returns the project's absolute path.
  */
 export async function writeProject(root: string, { reference, out, siteUrl }: BuildOptions): Promise<string> {
@@ -128,10 +129,13 @@ async function treeNav(dir: string, platform: string): Promise<object> {
 // Zensical's search drops Dokka's table cell line breaks (<br>) without a space, joining the words on either side.
 // Dokka's tables of members repeat what each member's own page says, so search would list every member twice.
 // Dokka writes a declaration as a paragraph, set like the prose around it, whose name links to the page it's on.
+// Dokka writes a function named like a type beside it (Kotlin's factory-function idiom, a capitalized @Composable) to
+// `<name>.md`, which with directory URLs is served where the type's `<name>/index.md` is.
 // DocC writes declarations in unlabeled code blocks, which get labeled `swift` for syntax highlighting. TypeDoc's
 // Parameters and Returns headings would each be a search entry of their own, one per member; as labels, their text
 // is found under the member.
 async function tidyPages(dir: string, platform: string): Promise<void> {
+  const namesakes = platform === 'kotlin' ? await typeNamesakes(dir) : new Set<string>();
   for await (const page of glob('**/*.md', { cwd: dir })) {
     const md = await readFile(join(dir, page), 'utf8');
     const pkg = basename(dirname(page));
@@ -147,14 +151,31 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
         .replace(memberTable, '$& { data-search-exclude }');
     if (platform === 'kotlin' && pkg.startsWith('-') && basename(page) === `${pkg}.md`)
       tidy = tidy.replace(/^# .+$/m, '# constructor');
+    if (namesakes.size)
+      tidy = tidy.replace(pageLink, (href) => (namesakes.has(join(dirname(page), href)) ? funPage(href) : href));
     if (platform === 'typescript')
       tidy = tidy.replace(typedocLabel, (m, label?: string) => (label ? `**${label}**` : m));
     if (platform === 'swift')
       tidy = tidy.replace(codeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
     await writeFile(join(dir, page), tidy);
   }
+  // after the loop, whose glob could list a moved page again
+  for (const page of namesakes) await rename(join(dir, page), join(dir, funPage(page)));
 }
 
+/** The pages of the Dokka tree at `dir` that are named like the type folder beside them. */
+async function typeNamesakes(dir: string): Promise<Set<string>> {
+  const pages = new Set<string>();
+  for await (const page of glob('**/*.md', { cwd: dir })) {
+    if (existsSync(join(dir, page.slice(0, -3), 'index.md'))) pages.add(page);
+  }
+  return pages;
+}
+
+// a JVM name can't hold a `.`, so Dokka writes no page of this name
+const funPage = (page: string) => `${page.slice(0, -3)}.fun.md`;
+// a link's target, up to its anchor
+const pageLink = /(?<=\]\()[^)#]+/g;
 const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
 // a code block, so a heading in an example stays, or one of TypeDoc's labels
 const typedocLabel = /^```[\s\S]*?^```$|^#{2,6} (Parameters|Returns)$/gm;
