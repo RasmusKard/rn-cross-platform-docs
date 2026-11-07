@@ -29,6 +29,18 @@ await test('detect prints the detected platforms, one per line', () => {
   assert.equal(execFileSync(process.execPath, [cli, 'detect'], { cwd, encoding: 'utf8' }), 'typescript\nkotlin\n');
 });
 
+await test('detect runs without loading TypeDoc', () => {
+  const cwd = new URL('fixtures/bare-turbo', import.meta.url).pathname;
+  const blockTypedoc = `data:text/javascript,import { registerHooks } from 'node:module';
+    registerHooks({ resolve(specifier, context, next) {
+      if (specifier === 'typedoc') throw new Error('typedoc was loaded');
+      return next(specifier, context);
+    } });`;
+  const r = spawnSync(process.execPath, ['--import', blockTypedoc, cli, 'detect'], { cwd, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, 'typescript\nkotlin\n');
+});
+
 await test('detect exits 1 without a native module', () => {
   const r = spawnSync(process.execPath, [cli, 'detect'], {
     cwd: new URL('fixtures/none', import.meta.url).pathname,
