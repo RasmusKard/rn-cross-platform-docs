@@ -56,9 +56,14 @@ if (args.values.help || args.positionals.length === 0) {
   const library = await detectLibrary(process.cwd(), []).catch(fail);
   if (library) process.stdout.write(`${library.platforms.join('\n')}\n`);
 } else {
-  const platforms = args.values.platforms?.split(',').map((p) => p.trim()) as Platform[] | undefined;
+  // an empty entry can only be a stray comma, as in "typescript,"
+  const platforms = args.values.platforms
+    ?.split(',')
+    .map((p) => p.trim())
+    .filter(Boolean) as Platform[] | undefined;
   const unknown = platforms?.filter((p) => !allPlatforms.includes(p)) ?? [];
-  if (unknown.length) usageError(`Unknown platform: ${unknown.join(', ')}`);
+  if (platforms?.length === 0) usageError(`No platform in --platforms: give one or more of ${allPlatforms.join(',')}`);
+  else if (unknown.length) usageError(`Unknown platform: ${unknown.join(', ')}`);
   else {
     const { out, 'gradle-project': gradleProject, 'xcode-workspace': xcodeWorkspace } = args.values;
     await generate(process.cwd(), { out, platforms, gradleProject, xcodeWorkspace }).catch(fail);

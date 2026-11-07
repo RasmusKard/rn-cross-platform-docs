@@ -30,6 +30,18 @@ await test('detect prints the detected platforms, one per line', () => {
   assert.equal(execFileSync(process.execPath, [cli, 'detect'], { cwd, encoding: 'utf8' }), 'typescript\nkotlin\n');
 });
 
+await test('detect runs without loading TypeDoc', () => {
+  const cwd = new URL('fixtures/bare-turbo', import.meta.url).pathname;
+  const blockTypedoc = `data:text/javascript,import { registerHooks } from 'node:module';
+    registerHooks({ resolve(specifier, context, next) {
+      if (specifier === 'typedoc') throw new Error('typedoc was loaded');
+      return next(specifier, context);
+    } });`;
+  const r = spawnSync(process.execPath, ['--import', blockTypedoc, cli, 'detect'], { cwd, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, 'typescript\nkotlin\n');
+});
+
 await test('detect exits 1 without a native module', () => {
   const r = spawnSync(process.execPath, [cli, 'detect'], {
     cwd: new URL('fixtures/none', import.meta.url).pathname,
@@ -53,4 +65,21 @@ await test('detect lists swift when it has several podspecs, leaving the error t
   const r = spawnSync(process.execPath, [cli, 'generate', '--platforms', 'swift'], { cwd, encoding: 'utf8' });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /Expected one podspec in .*, found 2: TwoPods\.podspec, ios\/TwoPods\.podspec/);
+});
+
+await test('an empty --platforms exits 2 naming the platforms', () => {
+  for (const list of ['', ' , ']) {
+    const r = spawnSync(process.execPath, [cli, 'generate', '--platforms', list], { encoding: 'utf8' });
+    assert.equal(r.status, 2);
+    assert.match(r.stderr, /^No platform in --platforms: give one or more of typescript,kotlin,swift\n\nUsage: /);
+  }
+});
+
+await test('an empty --platforms entry is ignored', () => {
+  const r = spawnSync(process.execPath, [cli, 'generate', '--platforms', ',kotlin,,swift,'], {
+    cwd: new URL('fixtures/bare-turbo', import.meta.url).pathname,
+    encoding: 'utf8',
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /No swift sources detected/);
 });

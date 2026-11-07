@@ -61,18 +61,14 @@ async function sectionNav(root: string, rel: string): Promise<NavItem[]> {
   const entries = (await readdir(join(root, rel), { withFileTypes: true })).sort((a, b) =>
     a.name.localeCompare(b.name, 'en'),
   );
-  const names = new Set(entries.map((e) => e.name));
-  const dirs = new Set(entries.filter((e) => e.isDirectory()).map((e) => e.name));
   const path = (name: string) => (rel ? `${rel}/${name}` : name);
   const items: NavItem[] = [];
   for (const e of entries) {
     if (e.isDirectory()) {
-      const folder = await folderNav(root, path(e.name), names.has(`${e.name}.md`));
+      const folder = await folderNav(root, path(e.name));
       if (folder) items.push(folder);
-    } else if (e.name.endsWith('.md') && !dirs.has(e.name.slice(0, -3))) {
-      // Dokka's constructors page is named, and titled, like its class: -greeting-options/-greeting-options.md
-      const constructors = basename(rel).startsWith('-') && e.name === `${basename(rel)}.md`;
-      items.push(constructors ? { constructor: path(e.name) } : path(e.name));
+    } else if (e.name.endsWith('.md')) {
+      items.push(path(e.name));
     }
   }
   // index.md first, so it becomes the section's page (navigation.indexes)
@@ -82,17 +78,17 @@ async function sectionNav(root: string, rel: string): Promise<NavItem[]> {
 }
 
 /**
- * The section for folder `rel`, titled by the H1 of its page: its own `index.md`, or the sibling `<rel>.md` (a DocC type
- * with a member named `index`), which comes first. A folder without a page is titled by name. A folder holding only its
- * page, or only one section, is replaced by it. A folder without pages (DocC's images/) is left out.
+ * The section for folder `rel`, titled by the H1 of its page, `index.md`, which comes first. A folder without a page is
+ * titled by name. A folder holding only its page, or only one section, is replaced by it. A folder without pages (DocC's
+ * images/) is left out.
  */
-async function folderNav(root: string, rel: string, hasSibling: boolean): Promise<NavItem | undefined> {
+async function folderNav(root: string, rel: string): Promise<NavItem | undefined> {
   let children = await sectionNav(root, rel);
-  if (hasSibling) children.unshift(`${rel}.md`);
   if (!children.length) return undefined;
-  const page = children[0] === `${rel}.md` || children[0] === `${rel}/index.md` ? children[0] : undefined;
+  const page = children[0] === `${rel}/index.md` ? children[0] : undefined;
   const md = page ? await readFile(join(root, page), 'utf8') : '';
-  const entries = md.indexOf('\n## Entries\n');
+  // its heading may end in the attribute list that keeps the table out of search
+  const entries = md.search(/^## Entries(?: \{.*\})?$/m);
   if (entries >= 0 && children.includes(`${rel}/value-of.md`)) children = enumNav(children, rel, md.slice(entries));
   if (children.length === 1 && (page || typeof children[0] !== 'string')) return children[0];
   return { [(page && readH1(md)) || basename(rel)]: children };
