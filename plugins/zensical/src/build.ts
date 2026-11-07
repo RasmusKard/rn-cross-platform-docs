@@ -161,7 +161,9 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
       tidy = tidy.replace(pageLink, (href) => (namesakes.has(join(dirname(page), href)) ? funPage(href) : href));
     if (platform === 'typescript') tidy = typedocLabels(tidy);
     if (platform === 'swift')
-      tidy = tidy.replace(codeBlock, (block, lang: string, rest: string) => (lang ? block : `\`\`\`swift\n${rest}`));
+      tidy = splitCode(tidy)
+        .map((part, i) => (i % 2 ? part.replace(bareFence, '$&swift') : part))
+        .join('');
     await writeFile(join(dir, page), tidy);
   }
   // after the loop, whose glob could list a moved page again
@@ -181,7 +183,29 @@ async function typeNamesakes(dir: string): Promise<Set<string>> {
 const funPage = (page: string) => `${page.slice(0, -3)}.fun.md`;
 // a link's target, up to its anchor
 const pageLink = /(?<=\]\()[^)#]+/g;
-const codeBlock = /^```(.*)\n([\s\S]*?^```)$/gm;
+
+/** `md` as prose and the fenced code blocks between, `[prose, code, prose, …, prose]`, by CommonMark's rules. */
+function splitCode(md: string): string[] {
+  const parts = [''];
+  let fence = ''; // the open block's, such as ```` or ~~~
+  for (const line of md.split(/(?<=\n)/)) {
+    const [, run = '', info = ''] = /^ {0,3}(`{3,}|~{3,})(.*)/.exec(line) ?? [];
+    // a backtick in the info string makes the line inline code
+    if (!fence && run && !(run[0] === '`' && info.includes('`'))) {
+      fence = run;
+      parts.push(line);
+    } else if (fence && run.startsWith(fence) && !info.trim()) {
+      fence = '';
+      parts[parts.length - 1] += line;
+      parts.push('');
+    } else parts[parts.length - 1] += line;
+  }
+  if (fence) parts.push('');
+  return parts;
+}
+
+// the opening fence of a code block without a language
+const bareFence = /^ {0,3}(?:`{3,}|~{3,})(?=[ \t]*\n)/;
 // typedoc-plugin-markdown's headings in a member or in the page's own, in English
 const typedocSections = new Set([
   'Parameters',
@@ -214,16 +238,15 @@ const typedocSections = new Set([
   'Default',
   'Since',
 ]);
-// a code block, so a heading in an example stays, or a heading and the blockquote line after it, if any
-const typedocHeading = /^```[\s\S]*?^```$|^(#{2,6}) (.+)$(?=(?:\n+(> .*))?)/gm;
+// a heading and the blockquote line after it, if any
+const typedocHeading = /^(#{2,6}) (.+)$(?=(?:\n+(> .*))?)/gm;
 
 /** `md` with the headings inside each member as labels: TypeDoc's sections, and any heading under one or a member's. */
 function typedocLabels(md: string): string {
   let member = 7; // headings deeper than this level are inside a member
   let names = 7; // and deeper than this, in a Parameters or Type Parameters section, are names
   let linked = false; // in the page's own Type Parameters or Type Declaration, whose names TypeDoc links to by id
-  return md.replace(typedocHeading, (heading, hashes?: string, title = '', next = '') => {
-    if (!hashes) return heading;
+  const label = (heading: string, hashes: string, title: string, next = '') => {
     const level = hashes.length;
     const inside = level > member;
     // a member's heading is followed by its declaration naming it, `b.c` as `c`: an enum member may look like a section
@@ -237,7 +260,11 @@ function typedocLabels(md: string): string {
     // neither a parameter's name nor a member of the member's type: a section, such as one of a custom block tag
     if (section || (level <= names && !declared)) return `**${title}**`;
     return nameLabel(title, linked && level === 3);
-  });
+  };
+  // a heading in an example stays
+  return splitCode(md)
+    .map((part, i) => (i % 2 ? part : part.replace(typedocHeading, label)))
+    .join('');
 }
 
 // a name in code, as in the signature; TypeDoc escapes Markdown in it and strikes out a deprecated member's

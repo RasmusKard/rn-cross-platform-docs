@@ -91,6 +91,24 @@ await test('drops what precedes each reference page H1 and labels Swift code blo
   assert.match(readFileSync(join(out, 'zensical.toml'), 'utf8'), /^toc\.toc_depth = 3$/m);
 });
 
+await test('labels Swift code blocks fenced with tildes, and leaves code in a longer fence as written', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/swift/documentation/m'), { recursive: true });
+  // a catalog article showing a fence inside a longer one
+  const page = (swift: string) =>
+    markdown(
+      '# M',
+      'Write a fence like this:',
+      '````markdown\n```\nlet x = 1\n```\n````',
+      `\`\`\`${swift}\nlet y = 2\n\`\`\``,
+      'Text between.',
+      `~~~${swift}\nfunc z()\n~~~`,
+    );
+  writeFileSync(join(root, 'docs/reference/swift/documentation/m/index.md'), page(''));
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(readFileSync(join(out, 'docs/swift/documentation/m/index.md'), 'utf8'), page('swift'));
+});
+
 await test('drops the Kotlin root page when the nav leaves it out', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example/-t'), { recursive: true });
@@ -449,6 +467,36 @@ await test("turns TypeDoc's Parameters and Returns headings into bold labels, ou
   );
   assert.equal(readFileSync(join(out, 'docs/kotlin/index.md'), 'utf8'), '# f\n\n#### Parameters\n');
   assert.equal(readFileSync(join(out, 'docs/guides/a.md'), 'utf8'), '# A\n\n## Returns\n');
+});
+
+await test('keeps the headings in TypeScript code fenced with tildes or a longer fence', async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/functions'), { recursive: true });
+  // typedoc-plugin-markdown 4.14.1's page, less its Defined in line, for a doc comment showing Markdown
+  const page = (parameters: string, text: string, returns: string, example: string) =>
+    markdown(
+      '# Function: parse()',
+      '> **parse**(`text`): `number`',
+      'Document it like this:',
+      "````md\n```ts\nparse('1');\n```\n\n## Parameters\n````",
+      '~~~md\n## Returns\n~~~',
+      parameters,
+      text,
+      '`string`',
+      returns,
+      '`number`',
+      example,
+      "```ts\nparse('2'); // 2\n```",
+    );
+  writeFileSync(
+    join(root, 'docs/reference/typescript/functions/parse.md'),
+    page('## Parameters', '### text', '## Returns', '## Example'),
+  );
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(
+    readFileSync(join(out, 'docs/typescript/functions/parse.md'), 'utf8'),
+    page('**Parameters**', '**`text`**', '**Returns**', '**Example**'),
+  );
 });
 
 await test('turns the headings inside each TypeScript member into labels, so search lists the member once', async () => {
