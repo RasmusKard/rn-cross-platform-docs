@@ -66,3 +66,20 @@ await test('detect lists swift when it has several podspecs, leaving the error t
   assert.equal(r.status, 1);
   assert.match(r.stderr, /Expected one podspec in .*, found 2: TwoPods\.podspec, ios\/TwoPods\.podspec/);
 });
+
+await test('an empty --platforms exits 2 naming the platforms', () => {
+  for (const list of ['', ' , ']) {
+    const r = spawnSync(process.execPath, [cli, 'generate', '--platforms', list], { encoding: 'utf8' });
+    assert.equal(r.status, 2);
+    assert.match(r.stderr, /^No platform in --platforms: give one or more of typescript,kotlin,swift\n\nUsage: /);
+  }
+});
+
+await test('an empty --platforms entry is ignored', () => {
+  const r = spawnSync(process.execPath, [cli, 'generate', '--platforms', ',kotlin,,swift,'], {
+    cwd: new URL('fixtures/bare-turbo', import.meta.url).pathname,
+    encoding: 'utf8',
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /No swift sources detected/);
+});
