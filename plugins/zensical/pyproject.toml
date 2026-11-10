@@ -4,7 +4,7 @@
 name = "rn-cross-platform-docs-zensical"
 version = "0"
 requires-python = ">=3.11"
-dependencies = ["zensical==0.0.74"]
+dependencies = ["zensical==0.1.0"]
 
 # a [tool.uv] table ends uv's search for settings here, so a uv.toml or pyproject.toml above node_modules doesn't apply
 [tool.uv]
