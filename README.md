@@ -95,6 +95,7 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
   site too. Links there into the reference, such as `docs/reference/typescript/README.md`, open the site's page, if
   it has one; links to other repo files and folders, such as `LICENSE` or `example/`, open them in the repo
   (`repository` in `package.json`).
+- Search also matches a word inside a camelCase name: `zoom` finds `textZoom`.
 - The TypeScript nav is typedoc-plugin-markdown's navigation, so TypeDoc's grouping, category and sorting options and
   its `navigation` options shape it.
 - Swift deprecation doesn't show: DocC only writes it in a metadata comment.

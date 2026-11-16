@@ -44,6 +44,21 @@ await test('writes the config, inputs and nav for the platforms present', async 
   assert.match(toml, /^scheme = "slate"$/m);
   assert.match(toml, /^pymdownx\.escapeall\.hardbreak = true$/m);
   assert.doesNotMatch(toml, /^pymdownx\.emoji/m);
+  // search also splits a name before each capitalized word, so `zoom` finds `textZoom`
+  const separator = /^separator = '(.+)'$/m.exec(toml)?.[1];
+  assert.ok(separator);
+  assert.deepEqual('textZoom builtInZoomControls WKWebView 1.5'.split(new RegExp(separator)), [
+    'text',
+    'Zoom',
+    'built',
+    'In',
+    'Zoom',
+    'Controls',
+    'WK',
+    'Web',
+    'View',
+    '1.5',
+  ]);
   assert.ok(existsSync(join(out, 'docs/README.md')));
   assert.ok(existsSync(join(out, 'docs/guides/a.md')));
   assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/.nav.yml'), 'utf8')), {
