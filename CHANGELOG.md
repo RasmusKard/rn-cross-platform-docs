@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.2](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.3.1...v1.3.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **deps:** Bump the zensical-dependencies group ([#68](https://github.com/RasmusKard/rn-cross-platform-docs/issues/68)) ([4c195ae](https://github.com/RasmusKard/rn-cross-platform-docs/commit/4c195aeb4d6c893e34124fd095e30887fa9d0a4b))
+* **deps:** Bump zensical from 0.0.74 to 0.1.0 in /plugins/zensical ([#70](https://github.com/RasmusKard/rn-cross-platform-docs/issues/70)) ([54146c8](https://github.com/RasmusKard/rn-cross-platform-docs/commit/54146c821e6526a0af26dc2f0a39343ac70487b5))
+* **deps:** Bump zensical from 0.1.0 to 0.1.1 in /plugins/zensical ([#75](https://github.com/RasmusKard/rn-cross-platform-docs/issues/75)) ([1e8d492](https://github.com/RasmusKard/rn-cross-platform-docs/commit/1e8d4928dad299c390d2cc07aecd10e535a380ac))
+
 ## [1.3.1](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.3.0...v1.3.1) (2026-11-16)
 
 
