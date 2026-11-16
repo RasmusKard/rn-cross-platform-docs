@@ -675,6 +675,9 @@ export function repoUrl(repository: Package['repository']): string | undefined {
   return short ? `https://${shorthandHosts[short[1] ?? 'github']}/${short[2]}` : undefined;
 }
 
+// a TOML literal string holds it as written, so it has no single quote
+const searchSeparator = '[\\s\\-_,:!=\\[\\]()\\\\"`/]+|\\.(?!\\d)|(?!\\b)(?=[A-Z][a-z])';
+
 function zensicalToml({ name, description, repository }: Package, siteUrl?: string): string {
   const repo = repoUrl(repository);
   const project = [
@@ -728,6 +731,10 @@ toggle.name = "Switch to system preference"
 
 # Zensical's built-in awesome-nav replacement; reads docs/**/.nav.yml
 [project.plugins.awesome-nav]
+
+# Zensical's default separator, plus a split before each capitalized word inside a name: zoom finds textZoom
+[project.plugins.search]
+separator = '${searchSeparator}'
 
 # Zensical's default extension set (setting this table replaces it), minus emoji, plus escapeall
 [project.markdown_extensions]
