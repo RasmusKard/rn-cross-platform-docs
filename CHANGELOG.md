@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.3.0...v1.3.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* Find a word inside a camelCase name in the site's search ([#71](https://github.com/RasmusKard/rn-cross-platform-docs/issues/71)) ([14ba204](https://github.com/RasmusKard/rn-cross-platform-docs/commit/14ba2046282f833652b2dadbd6ea10b494059073))
+
 ## [1.3.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.2.0...v1.3.0) (2026-11-07)
 
 
