@@ -9,6 +9,10 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    # The dev dependencies of both packages share one PR.
+    groups:
+      dev-dependencies:
+        dependency-type: development
     ignore:
       # Matches the oldest Node in `engines`; newer types would allow APIs it lacks.
       - dependency-name: '@types/node'
