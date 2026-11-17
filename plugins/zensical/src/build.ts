@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync, type Stats } from 'node:fs';
 import { cp, glob, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platformNav, typescriptNav, type NavItem, type TypeDocNavItem } from './nav.ts';
 
@@ -403,23 +403,30 @@ function dropBeforeH1(md: string): string {
   return first?.[0] === '# ' ? front + rest.slice(first.index) : md;
 }
 
-/** The guides in the order the README links them, then the rest, if there are any. */
+/**
+ * The guides in the order the README links them, then the rest, if there are any. A guide in a folder puts the whole
+ * folder there, so it stays with the guides beside it.
+ */
 async function guidesNav(root: string, docs: string): Promise<{ nav: string[] }> {
   const readme = await readFile(join(root, 'README.md'), 'utf8');
   const linked = linkDestinations(readme).flatMap((href) => {
     const guide = /^(?:\.\/)?guides\/([^?#]+\.md)(?:[?#]|$)/.exec(href)?.[1];
     if (!guide) return [];
     try {
-      return [decodeURIComponent(guide)];
+      return [normalize(decodeURIComponent(guide))];
     } catch {
       // a `%` that is part of the file name, as in 100%.md
-      return [guide];
+      return [normalize(guide)];
     }
   });
-  const nav = [...new Set(linked)].filter((f) => existsSync(join(docs, 'guides', f)));
+  // a guide's entry in guides/: itself, or the folder it is in
+  const entry = (guide: string) => guide.split(/[\\/]/)[0];
+  // a link like guides/../README.md leaves guides/
+  const inGuides = (f: string) => entry(f) !== '..' && existsSync(join(docs, 'guides', f));
+  const nav = [...new Set(linked.filter(inGuides).map(entry))];
   // awesome-nav warns about a `*` that matches nothing
   for await (const f of glob('**/*.md', { cwd: join(docs, 'guides') })) {
-    if (!nav.includes(f)) return { nav: [...nav, '*'] };
+    if (!nav.includes(entry(f))) return { nav: [...nav, '*'] };
   }
   return { nav };
 }

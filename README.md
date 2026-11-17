@@ -33,7 +33,8 @@ npx rn-cross-platform-docs-zensical build   # the site is docs-site/site/
 ```
 
 The site's home page is the library's `README.md`. The pages in `guides/`, if there is one, follow in the order the
-README links them; `guides/.nav.yml` overrides that. Site name, description and repo link come from `package.json`.
+README links them, a folder of guides where its first linked guide is; `guides/.nav.yml` overrides that. Site name,
+description and repo link come from `package.json`.
 
 Both commands take `--help` for their options.
 
