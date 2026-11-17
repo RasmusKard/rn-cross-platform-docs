@@ -73,7 +73,7 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - **Kotlin:** Write module and package documentation in `android/Module.md`, in Dokka's format, as the example's
   [Module.md](examples/expo-greeter/android/Module.md) does.
 - **Kotlin:** Pages list the members a class declares or overrides, not the ones it inherits.
-- **Swift:** To show a DocC catalog's landing article, pass the catalog to DocC in the podspec, as
+- **Swift:** To show a DocC catalog's landing article, list the catalog's files in the podspec's `source_files`, as
   [ExpoGreeter.podspec](examples/expo-greeter/ios/ExpoGreeter.podspec) does.
 - **Swift:** With Xcode 27, a type's page doesn't list its members, and the landing page lists only the Topics a
   catalog writes; the site's sidebar still lists them all.
