@@ -32,6 +32,9 @@ npm install --save-dev @rn-cross-platform-docs/zensical
 npx rn-cross-platform-docs-zensical build   # the site is docs-site/site/
 ```
 
+The site's home page is the library's `README.md`. The pages in `guides/`, if there is one, follow in the order the
+README links them; `guides/.nav.yml` overrides that. Site name, description and repo link come from `package.json`.
+
 Both commands take `--help` for their options.
 
 ### GitHub Actions
@@ -66,37 +69,12 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 
 ## Good to know
 
-- Swift docs build the Xcode scheme named after the podspec file, in `--xcode-workspace`.
-- A DocC catalog's landing article, such as one that says who the Swift API is for, needs the pod to pass the catalog
-  to DocC, since CocoaPods doesn't add a `.docc` folder: see
-  [ExpoGreeter.podspec](examples/expo-greeter/ios/ExpoGreeter.podspec).
-- `android/Module.md`, if there is one, is Dokka's module and package documentation.
-- TypeDoc runs on your own TypeDoc config. Where it doesn't set them, the entry point is `src/index.ts(x)` and `readme`
-  is `none`, so no README page is made.
-- The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
-  from your TypeDoc config.
-- DocC in Xcode 27 (Swift 6.4) writes no Topics in its Markdown, so the Swift landing page and type pages don't list
-  their members, except the Topics a catalog article writes itself; the Zensical site's sidebar still lists them.
+- **TypeScript:** Without `entryPoints` in your TypeDoc config, TypeDoc documents `src/index.ts(x)`.
+- **Kotlin:** Write module and package documentation in `android/Module.md`, in Dokka's format, as the example's
+  [Module.md](examples/expo-greeter/android/Module.md) does.
+- **Kotlin:** Pages list the members a class declares or overrides, not the ones it inherits.
+- **Swift:** To show a DocC catalog's landing article, pass the catalog to DocC in the podspec, as
+  [ExpoGreeter.podspec](examples/expo-greeter/ios/ExpoGreeter.podspec) does.
+- **Swift:** With Xcode 27, a type's page doesn't list its members, and the landing page lists only the Topics a
+  catalog writes; the site's sidebar still lists them all.
   [swift-docc#1625](https://github.com/swiftlang/swift-docc/pull/1625) fixes it in a later release.
-- A Swift declaration that names another of the module's types is an HTML code block (`<pre><code>`), so the type can
-  link to its page. GitHub and the site show it as code; the site doesn't color its syntax.
-- Kotlin pages list only the members a class declares or overrides. Inherited ones, from Android and React Native base
-  classes too, would otherwise fill the page with links to anchors Dokka's Markdown doesn't write.
-
-### Zensical site
-
-- The plugin's `uv.lock` pins Zensical and its Python dependencies, with hashes. uv installs them in its cache, from
-  the URLs in the lock (files.pythonhosted.org), not from an index you configure.
-- Guides are listed in the order the README links them; `guides/.nav.yml` overrides that. Site name, description and
-  repo link come from `package.json`.
-- Images in the README and guides from elsewhere in the library, including `<picture>` and `srcset` ones, show on the
-  site too. Links there into the reference, such as `docs/reference/typescript/README.md`, open the site's page, if
-  it has one; links to other repo files and folders, such as `LICENSE` or `example/`, open them in the repo
-  (`repository` in `package.json`).
-- Search also matches a word inside a camelCase name: `zoom` finds `textZoom`.
-- The TypeScript nav is typedoc-plugin-markdown's navigation, so TypeDoc's grouping, category and sorting options and
-  its `navigation` options shape it.
-- TypeDoc's headings inside a member, such as Parameters, each parameter's name, Returns and Example, become bold
-  labels, so search lists each member once, with its parameters, return value and examples.
-- If TypeDoc also copies the guides (`documents/`), those copies stay out of the nav and search, and their links
-  outside `guides/` break.
