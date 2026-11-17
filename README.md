@@ -70,8 +70,7 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
 - A DocC catalog's landing article, such as one that says who the Swift API is for, needs the pod to pass the catalog
   to DocC, since CocoaPods doesn't add a `.docc` folder: see
   [ExpoGreeter.podspec](examples/expo-greeter/ios/ExpoGreeter.podspec).
-- `android/Module.md`, if there is one, is Dokka's module and package documentation. For a library with one package,
-  the site leaves out Dokka's root page, so only the `# Package` section shows there.
+- `android/Module.md`, if there is one, is Dokka's module and package documentation.
 - TypeDoc runs on your own TypeDoc config. Where it doesn't set them, the entry point is `src/index.ts(x)` and `readme`
   is `none`, so no README page is made.
 - The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`

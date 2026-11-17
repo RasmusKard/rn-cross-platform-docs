@@ -121,6 +121,20 @@ await test('Kotlin: one package replaces the root page that lists it', async () 
   });
 });
 
+await test('Kotlin: a root page with module documentation stays ahead of its one package', async () => {
+  const packages = '## Packages\n\n| Name |\n|---|\n| [com.example](lib/com.example/index.md) |';
+  const dir = tree({
+    'index.md': `# lib\n\n${packages}`,
+    'lib/com.example/index.md': '# com.example',
+    'lib/com.example/-web-view/index.md': '# WebView',
+  });
+  assert.deepEqual(await platformNav(dir), { nav: ['lib/com.example/index.md', 'lib/com.example/-web-view/index.md'] });
+  writeFileSync(join(dir, 'index.md'), `# lib\n\nWhat the module is for.\n\n${packages}`);
+  assert.deepEqual(await platformNav(dir), {
+    nav: ['index.md', 'lib/com.example/index.md', 'lib/com.example/-web-view/index.md'],
+  });
+});
+
 await test('Swift: sections titled by index.md H1, documentation/<module> level dropped', async () => {
   const dir = tree({
     'documentation/m/index.md': '# M',
