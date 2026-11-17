@@ -400,6 +400,27 @@ await test('TypeScript without navigation JSON hides _media/ and documents/', as
   );
 });
 
+await test("leaves TypeDoc's document pages out of search if there are guides, keeping front matter they have", async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/typescript/documents'), { recursive: true });
+  writeFileSync(join(root, 'docs/reference/typescript/documents/a.md'), '[my-lib](../README.md)\n\n# A\n');
+  writeFileSync(join(root, 'docs/reference/typescript/documents/b.md'), '---\ntitle: B\n---\n# B\n');
+  writeFileSync(join(root, 'docs/reference/typescript/README.md'), '# my-lib\n');
+  // a document of a class, from its `@document` tag
+  mkdirSync(join(root, 'docs/reference/typescript/classes/documents'), { recursive: true });
+  writeFileSync(join(root, 'docs/reference/typescript/classes/documents/c.md'), '# C\n');
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  const page = (name: string) => readFileSync(join(out, 'docs/typescript', name), 'utf8');
+  assert.equal(page('documents/a.md'), '---\nsearch:\n  exclude: true\n---\n# A\n');
+  assert.equal(page('classes/documents/c.md'), '---\nsearch:\n  exclude: true\n---\n# C\n');
+  assert.equal(page('documents/b.md'), '---\nsearch:\n  exclude: true\ntitle: B\n---\n# B\n');
+  assert.equal(page('README.md'), '# my-lib\n');
+
+  rmSync(join(root, 'guides'), { recursive: true });
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.equal(page('documents/a.md'), '# A\n', 'documents that are no copies of guides stay in search');
+});
+
 await test('replaces its own project on a rebuild, and drops removed pages', async () => {
   const root = library();
   await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });

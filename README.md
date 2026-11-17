@@ -99,5 +99,5 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
   its `navigation` options shape it.
 - TypeDoc's headings inside a member, such as Parameters, each parameter's name, Returns and Example, become bold
   labels, so search lists each member once, with its parameters, return value and examples.
-- If TypeDoc also copies the guides (`documents/`), those copies stay out of the nav, but search lists each guide twice
-  and their links outside `guides/` break.
+- If TypeDoc also copies the guides (`documents/`), those copies stay out of the nav and search, and their links
+  outside `guides/` break.
