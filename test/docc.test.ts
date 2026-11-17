@@ -4,7 +4,7 @@ import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/pro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { exportArchive, findArchive, linkDeclarations, pageFiles, rewriteLinks } from '../src/docc.ts';
+import { exportArchive, findArchive, linkDeclarations, markDeprecated, pageFiles, rewriteLinks } from '../src/docc.ts';
 import { brokenLinks } from './links.ts';
 
 const archive = new URL('fixtures/Fixture.doccarchive', import.meta.url).pathname;
@@ -54,10 +54,10 @@ The other [\`run(_:)\`](<./run(_:)-8upfu.md>), back to [\`Thing\`](<./index.md>)
 
 <pre><code>func run(_ module: BaseModule) -&gt; <a href="./index.md">Thing</a></code></pre>`,
   );
-  // Int has no page
+  // Int has no page; this overload is deprecated
   assert.equal(
     await readFile(join(out, 'documentation/fixture/thing/run(_:)-8upfu.md'), 'utf8'),
-    '# run(\\_:)\n\n```\nfunc run(_ n: Int)\n```',
+    '# run(\\_:)\n\n> **Deprecated**: Use the other run(\\_:).\n\n```\nfunc run(_ n: Int)\n```',
   );
 });
 
@@ -279,4 +279,26 @@ void test('linkDeclarations links the tokens that name a page, not the page itse
     ].join('\n\n'),
   );
   assert.equal(linkDeclarations(md, 'documentation/m/t/f(_:).md', {}, pages), md);
+});
+
+void test("markDeprecated notes a deprecated symbol under its page's H1, with its message if it has one", () => {
+  const url = 'doc://org.cocoapods.M/documentation/M/T/ask(_:_:)';
+  const node = { identifier: { url }, references: { [url]: { deprecated: true } } };
+  const md = '# ask(\\_:\\_:)\n\nAsks.\n\n```\nfunc ask()\n```';
+  assert.equal(markDeprecated(md, node), '# ask(\\_:\\_:)\n\n> **Deprecated**\n\nAsks.\n\n```\nfunc ask()\n```');
+  const deprecationSummary = [
+    {
+      type: 'paragraph',
+      inlineContent: [
+        { type: 'text', text: 'Use tell(_:_:) or ' },
+        { type: 'codeVoice', code: 'say(_:)' },
+      ],
+    },
+  ];
+  assert.equal(
+    markDeprecated(md, { ...node, deprecationSummary }),
+    '# ask(\\_:\\_:)\n\n> **Deprecated**: Use tell(\\_:\\_:) or `say(_:)`\n\nAsks.\n\n```\nfunc ask()\n```',
+  );
+  assert.equal(markDeprecated(md, { identifier: { url }, references: { [url]: {} } }), md);
+  assert.equal(markDeprecated(md, {}), md);
 });
