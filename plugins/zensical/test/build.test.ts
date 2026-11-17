@@ -332,6 +332,18 @@ await test('orders guides as the README links them, then any rest, and keeps a g
   await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.deepEqual(JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8')), { nav: ['b.md', 'a.md', '*'] });
 
+  writeFileSync(join(root, 'guides/more/e.md'), '# E');
+  writeFileSync(
+    join(root, 'README.md'),
+    '# my-lib\n\n[D](guides/more/d.md), [B](guides/./b.md), [home](guides/../README.md), [A](guides/more/../a.md)',
+  );
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8')),
+    { nav: ['more', 'b.md', 'a.md'] },
+    'a linked guide in a folder places the folder, with the guides beside it; `.` and `..` in a link are resolved',
+  );
+
   writeFileSync(join(root, 'guides/.nav.yml'), 'nav: [c.md]');
   await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(readFileSync(join(out, 'docs/guides/.nav.yml'), 'utf8'), 'nav: [c.md]');
