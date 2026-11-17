@@ -12,8 +12,8 @@ export async function findArchive(dir: string): Promise<string> {
 
 /**
  * Writes the archive of Swift module `module` (its Markdown pages and images) to `out`, with symbol links and image paths
- * made relative and the types in each declaration linked to their pages. A page with child pages moves to
- * `<page>/index.md`, which site generators use as the section's page.
+ * made relative, the types in each declaration linked to their pages and a note on each deprecated symbol's page. A
+ * page with child pages moves to `<page>/index.md`, which site generators use as the section's page.
  */
 export async function exportArchive(archive: string, module: string, out: string): Promise<void> {
   const manifest = `${module}-markdown-manifest.json`;
@@ -41,8 +41,10 @@ export async function exportArchive(archive: string, module: string, out: string
     let md = rewriteLinks(source, file, files);
     // DocC writes each page's render JSON next to its Markdown
     const json = join(data, `${page.slice(0, -'.md'.length)}.json`);
-    if (existsSync(json))
-      md = linkDeclarations(md, file, JSON.parse(await readFile(json, 'utf8')) as RenderNode, files);
+    if (existsSync(json)) {
+      const node = JSON.parse(await readFile(json, 'utf8')) as RenderNode;
+      md = markDeprecated(linkDeclarations(md, file, node, files), node);
+    }
     // DocC leaves `_` unescaped in titles, so ask(_:_:) would render as ask(<em>:</em>:)
     md = md.replace(/^# .*/m, (h) => h.replace(/_/g, '\\_'));
     await mkdir(dirname(join(out, file)), { recursive: true });
@@ -113,8 +115,13 @@ export function rewriteLinks(md: string, page: string, files: Map<string, string
   });
 }
 
-/** The part of a DocC render node (a page's render JSON) that {@link linkDeclarations} reads. */
+/** The part of a DocC render node (a page's render JSON) that {@link linkDeclarations} and {@link markDeprecated} read. */
 export interface RenderNode {
+  identifier?: { url?: string };
+  // the page's own entry, under `identifier.url`, says whether its symbol is deprecated
+  references?: Record<string, { deprecated?: boolean }>;
+  // the deprecation message, if there is one, as paragraphs
+  deprecationSummary?: { inlineContent?: { type: string; text?: string; code?: string }[] }[];
   primaryContentSections?: {
     kind?: string;
     // a token that names a symbol DocC knows has its `doc://<bundle-id>/documentation/...` URL as `identifier`
@@ -148,6 +155,24 @@ export function linkDeclarations(md: string, page: string, node: RenderNode, fil
   return md.replace(/^```(.*)\n([\s\S]*?)\n```$/gm, (block, lang: string, code: string) =>
     lang ? block : (linked.get(code) ?? block),
   );
+}
+
+/**
+ * Adds a note under the H1 of a deprecated symbol's page, with the deprecation message if there is one. DocC leaves
+ * deprecation out of its Markdown; the page's render JSON `node` has it.
+ */
+export function markDeprecated(md: string, node: RenderNode): string {
+  const self = node.references?.[node.identifier?.url ?? ''];
+  if (!self?.deprecated && !node.deprecationSummary) return md;
+  // shortcut: a link or emphasis in a @DeprecationSummary loses its text, render them once a library writes one
+  const message = (node.deprecationSummary ?? [])
+    .map(({ inlineContent = [] }) =>
+      inlineContent
+        .map((i) => (i.type === 'codeVoice' ? `\`${i.code}\`` : (i.text ?? '').replace(/[\\`*_<[\]]/g, '\\$&')))
+        .join(''),
+    )
+    .join(' ');
+  return md.replace(/^# .*$/m, (h) => `${h}\n\n> **Deprecated**${message && `: ${message}`}`);
 }
 
 // the page path of a `doc://<bundle-id>/documentation/...` URL, which DocC percent-encodes
