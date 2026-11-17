@@ -55,16 +55,24 @@ export async function exportArchive(archive: string, module: string, out: string
 /**
  * Maps each page identifier, lowercased, to its file in the tree, named after `path(id)`, the page's file in DocC's
  * `data/` without `.md`: `<path>/index.md` for a page with child pages, else `<path>.md`, or `<parent>/--index--.md` if
- * it is named `index`, as Dokka names it. `?` becomes `'`, so that no page has a URL with a query. By default, `path`
- * puts a `'` before a name starting with `.`, as DocC names a file, so that no page is a hidden file.
+ * it is named `index`, as Dokka names it. `:` becomes `-`, `*` becomes `@` and `?` becomes `'`, so that no name holds
+ * a character Windows reserves and no page has a URL with a query. By default, `path` puts a `'` before a name
+ * starting with `.`, as DocC names a file, so that no page is a hidden file.
  */
 export function pageFiles(identifiers: string[], path: (id: string) => string = fileSafe): Map<string, string> {
   const paths = new Map(identifiers.map((i) => [i.toLowerCase(), path(i.toLowerCase())]));
   const parents = new Set([...paths.values()].map((p) => p.slice(0, p.lastIndexOf('/'))));
-  // `index.md` is its parent's page; a Swift name can't hold `-`, so no other page is named `--index--`
+  // `index.md` is its parent's page; no Swift name is or becomes `--index--`
   const file = (p: string) => (parents.has(p) ? `${p}/index` : p.replace(/\/index$/, '/--index--'));
-  // a Swift name can't hold `'` either, and only one starting with `.` can hold a `.`, so the names stay unique
-  return new Map([...paths].map(([id, p]) => [id, `${file(p).replace(/\?/g, "'").slice(1)}.md`]));
+  return new Map([...paths].map(([id, p]) => [id, `${windowsSafe(file(p)).slice(1)}.md`]));
+}
+
+// Windows reserves `:`, `*` and `?`; DocC already replaces the other characters it reserves. A Swift name can't hold
+// `'` or `@`, holds `-` only outside the parentheses that hold its `:`, and holds a `.` only if it starts with one, so
+// the names stay unique.
+// shortcut: a page named like a Windows device (`aux`, `con`, `nul`) keeps its name, prefix it once a library has one
+function windowsSafe(path: string): string {
+  return path.replace(/:/g, '-').replace(/\*/g, '@').replace(/\?/g, "'");
 }
 
 // DocC's path for a page's file: a name starting with `.` would be a hidden file
