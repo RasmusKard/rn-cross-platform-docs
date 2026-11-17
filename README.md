@@ -53,7 +53,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   docs:
-    uses: RasmusKard/rn-cross-platform-docs/.github/workflows/deploy-zensical.yml@v1
+    uses: RasmusKard/rn-cross-platform-docs/.github/workflows/deploy-zensical.yml@v2
     with:
       prepare: cd example && npx expo prebuild
 ```
@@ -75,7 +75,6 @@ For the reference alone, use [`generate.yml`](.github/workflows/generate.yml) th
   is `none`, so no README page is made.
 - The TypeScript tree includes typedoc-plugin-markdown's `navigation.json`. The CLI overrides `out` and `navigationJson`
   from your TypeDoc config.
-- Swift file names contain `:` and `!`, so Windows can't check out a committed Swift tree.
 - DocC in Xcode 27 (Swift 6.4) writes no Topics in its Markdown, so the Swift landing page and type pages don't list
   their members, except the Topics a catalog article writes itself; the Zensical site's sidebar still lists them.
   [swift-docc#1625](https://github.com/swiftlang/swift-docc/pull/1625) fixes it in a later release.

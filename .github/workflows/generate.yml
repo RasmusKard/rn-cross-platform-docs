@@ -1,5 +1,5 @@
 # Reusable: generates the Markdown API reference of the calling library repo, one runner per platform, and uploads
-# one artifact per platform holding `<platform>.tar` (Swift file names contain `:`, which upload-artifact rejects).
+# one artifact per platform holding `<platform>.tar`.
 name: Generate API reference
 
 on:

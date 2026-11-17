@@ -138,10 +138,10 @@ await test('Kotlin: a root page with module documentation stays ahead of its one
 await test('Swift: sections titled by index.md H1, documentation/<module> level dropped', async () => {
   const dir = tree({
     'documentation/m/index.md': '# M',
-    'documentation/m/f(_:).md': '# f(_:)',
+    'documentation/m/f(_-).md': '# f(_:)',
     'documentation/m/scope/index.md': '# Scope',
     'documentation/m/scope/end/index.md': '# Scope.End',
-    'documentation/m/scope/end/!=(_:_:).md': '# !=(_:_:)',
+    'documentation/m/scope/end/!=(_-_-).md': '# !=(_:_:)',
     'documentation/m/my_type/index.md': '# My\\_Type',
     'documentation/m/my_type/f().md': '# f()',
     'images/com.example.m/x.png': '',
@@ -149,12 +149,12 @@ await test('Swift: sections titled by index.md H1, documentation/<module> level 
   assert.deepEqual(await platformNav(dir), {
     nav: [
       'documentation/m/index.md',
-      'documentation/m/f(_:).md',
+      'documentation/m/f(_-).md',
       { My_Type: ['documentation/m/my_type/index.md', 'documentation/m/my_type/f().md'] },
       {
         Scope: [
           'documentation/m/scope/index.md',
-          { 'Scope.End': ['documentation/m/scope/end/index.md', 'documentation/m/scope/end/!=(_:_:).md'] },
+          { 'Scope.End': ['documentation/m/scope/end/index.md', 'documentation/m/scope/end/!=(_-_-).md'] },
         ],
       },
     ],

@@ -22,7 +22,7 @@ void test('exportArchive copies pages and images with every link resolving in th
     await readFile(join(out, 'documentation/fixture/index.md'), 'utf8'),
     `# Fixture
 
-A [\`Thing\`](<./thing/index.md>) whose [\`run(_:)\`](<./thing/run(_:)-8uxly.md>) compares with [\`!=(_:_:)\`](<./thing/!=(_:_:).md>), see the [Guide](<./guide.md#section>).
+A [\`Thing\`](<./thing/index.md>) whose [\`run(_:)\`](<./thing/run(_-)-8uxly.md>) compares with [\`!=(_:_:)\`](<./thing/!=(_-_-).md>), see the [Guide](<./guide.md#section>).
 It is a \`BaseModule\`.
 
 ![A probe](<../../images/org.cocoapods.Fixture/probe.png>)`,
@@ -31,32 +31,32 @@ It is a \`BaseModule\`.
     await readFile(join(out, 'documentation/fixture/thing/index.md'), 'utf8'),
     `# Thing
 
-In [\`Fixture\`](<../index.md>), [\`run(_:)\`](<./run(_:)-8upfu.md>), [\`??(_:_:)\`](<./''(_:_:).md>) and [\`...(_:_:)\`](<./'...(_:_:).md>).`,
+In [\`Fixture\`](<../index.md>), [\`run(_:)\`](<./run(_-)-8upfu.md>), [\`??(_:_:)\`](<./''(_-_-).md>) and [\`...(_:_:)\`](<./'...(_-_-).md>).`,
   );
   assert.equal(
-    await readFile(join(out, "documentation/fixture/thing/'...(_:_:).md"), 'utf8'),
+    await readFile(join(out, "documentation/fixture/thing/'...(_-_-).md"), 'utf8'),
     `# ...(\\_:\\_:)
 
 <pre><code>static func ... (minimum: <a href="./index.md">Thing</a>, maximum: <a href="./index.md">Thing</a>) -&gt; ClosedRange&lt;<a href="./index.md">Thing</a>&gt;</code></pre>`,
   );
   assert.equal(
-    await readFile(join(out, "documentation/fixture/thing/''(_:_:).md"), 'utf8'),
+    await readFile(join(out, "documentation/fixture/thing/''(_-_-).md"), 'utf8'),
     `# ??(\\_:\\_:)
 
 <pre><code>static func ?? (lhs: <a href="./index.md">Thing</a>?, rhs: <a href="./index.md">Thing</a>) -&gt; <a href="./index.md">Thing</a></code></pre>`,
   );
   // BaseModule is another module's
   assert.equal(
-    await readFile(join(out, 'documentation/fixture/thing/run(_:)-8uxly.md'), 'utf8'),
+    await readFile(join(out, 'documentation/fixture/thing/run(_-)-8uxly.md'), 'utf8'),
     `# run(\\_:)
 
-The other [\`run(_:)\`](<./run(_:)-8upfu.md>), back to [\`Thing\`](<./index.md>).
+The other [\`run(_:)\`](<./run(_-)-8upfu.md>), back to [\`Thing\`](<./index.md>).
 
 <pre><code>func run(_ module: BaseModule) -&gt; <a href="./index.md">Thing</a></code></pre>`,
   );
   // Int has no page; this overload is deprecated
   assert.equal(
-    await readFile(join(out, 'documentation/fixture/thing/run(_:)-8upfu.md'), 'utf8'),
+    await readFile(join(out, 'documentation/fixture/thing/run(_-)-8upfu.md'), 'utf8'),
     '# run(\\_:)\n\n> **Deprecated**: Use the other run(\\_:).\n\n```\nfunc run(_ n: Int)\n```',
   );
 });
@@ -110,8 +110,9 @@ void test('exportArchive keeps the name DocC shortened a page to, links to it by
 
   assert.deepEqual(await brokenLinks(join(dir, 'out')), []);
   const index = await readFile(join(dir, 'out/documentation/fixture/thing/index.md'), 'utf8');
-  assert.ok(index.endsWith(`\nSee [\`${name}\`](<./${short}.md>).`));
-  const page = await readFile(join(dir, `out/documentation/fixture/thing/${short}.md`), 'utf8');
+  const file = short.replaceAll(':', '-'); // as Windows can hold it
+  assert.ok(index.endsWith(`\nSee [\`${name}\`](<./${file}.md>).`));
+  const page = await readFile(join(dir, `out/documentation/fixture/thing/${file}.md`), 'utf8');
   assert.match(page, /^Back to \[`Thing`\]\(<\.\/index\.md>\)\.$/m);
   assert.ok(page.endsWith('\n<pre><code>func configure() -&gt; <a href="./index.md">Thing</a></code></pre>'));
 });
@@ -157,14 +158,14 @@ void test('rewriteLinks encodes operator characters, points fragments at heading
   assert.equal(
     rewriteLinks(md, 'documentation/m.md', pages),
     [
-      '[`<(_:_:)`](<./m/t/%3C(_:_:).md>)',
-      '[`%(_:_:)`](<./m/t/%25(_:_:).md>)',
+      '[`<(_:_:)`](<./m/t/%3C(_-_-).md>)',
+      '[`%(_:_:)`](<./m/t/%25(_-_-).md>)',
       '[T](<./m/t/index.md#overview>)',
       '[T](<./m/t/index.md#getting-started>)',
       '[T](<./m/t/index.md#c-and-cafe>)',
       'gone',
-      '[`subscript(_:) -> [Int]`](<./m/t/subscript(_:).md>)',
-      '> Note: Calls [`<(_:_:)`](<./m/t/%3C(_:_:).md>), not `run(_:)`.',
+      '[`subscript(_:) -> [Int]`](<./m/t/subscript(_-).md>)',
+      '> Note: Calls [`<(_:_:)`](<./m/t/%3C(_-_-).md>), not `run(_:)`.',
     ].join('\n'),
   );
 });
@@ -196,11 +197,11 @@ void test('pageFiles puts a page with child pages at <id>/index.md, and any othe
   );
 });
 
-void test("pageFiles puts a ' before a name starting with . and in place of ?, so the site serves the page", () => {
+void test("pageFiles names files without :, * and ?, with a ' before a leading ., so the site serves the page and Windows can hold it", () => {
   assert.deepEqual(
     pageFiles([
+      '/documentation/M/T/*=(_:_:)',
       '/documentation/M/T/...(_:_:)',
-      '/documentation/M/T/..<(_:)',
       '/documentation/M/T/??(_:_:)',
       '/documentation/M/T/__(_:_:)',
       '/documentation/M/T/-(_:_:)',
@@ -208,12 +209,12 @@ void test("pageFiles puts a ' before a name starting with . and in place of ?, s
       '/documentation/M/T/Mode-swift.enum',
     ]),
     new Map([
-      ['/documentation/m/t/...(_:_:)', "documentation/m/t/'...(_:_:).md"],
-      ['/documentation/m/t/..<(_:)', "documentation/m/t/'..<(_:).md"],
-      ['/documentation/m/t/??(_:_:)', "documentation/m/t/''(_:_:).md"],
-      ['/documentation/m/t/__(_:_:)', 'documentation/m/t/__(_:_:).md'],
-      ['/documentation/m/t/-(_:_:)', 'documentation/m/t/-(_:_:).md'],
-      ['/documentation/m/t/--(_:)', 'documentation/m/t/--(_:).md'],
+      ['/documentation/m/t/*=(_:_:)', 'documentation/m/t/@=(_-_-).md'],
+      ['/documentation/m/t/...(_:_:)', "documentation/m/t/'...(_-_-).md"],
+      ['/documentation/m/t/??(_:_:)', "documentation/m/t/''(_-_-).md"],
+      ['/documentation/m/t/__(_:_:)', 'documentation/m/t/__(_-_-).md'],
+      ['/documentation/m/t/-(_:_:)', 'documentation/m/t/-(_-_-).md'],
+      ['/documentation/m/t/--(_:)', 'documentation/m/t/--(_-).md'],
       ['/documentation/m/t/mode-swift.enum', 'documentation/m/t/mode-swift.enum.md'],
     ]),
   );
@@ -267,7 +268,7 @@ void test('linkDeclarations links the tokens that name a page, not the page itse
     '```\nfunc g()\n```',
   ].join('\n\n');
   assert.equal(
-    linkDeclarations(md, 'documentation/m/t/&&(_:_:).md', node, pages),
+    linkDeclarations(md, 'documentation/m/t/&&(_-_-).md', node, pages),
     [
       '# &&(\\_:\\_:)',
       '```swift\nfunc f(_ t: T)\n```',
@@ -278,7 +279,7 @@ void test('linkDeclarations links the tokens that name a page, not the page itse
       '```\nfunc g()\n```',
     ].join('\n\n'),
   );
-  assert.equal(linkDeclarations(md, 'documentation/m/t/f(_:).md', {}, pages), md);
+  assert.equal(linkDeclarations(md, 'documentation/m/t/f(_-).md', {}, pages), md);
 });
 
 void test("markDeprecated notes a deprecated symbol under its page's H1, with its message if it has one", () => {
