@@ -46,8 +46,9 @@ export async function build(root: string, options: BuildOptions): Promise<void> 
  * Reference pages lose whatever precedes their H1 (breadcrumbs, page headers, metadata comments), Kotlin pages lose
  * Dokka's `androidJvm` source set marks, Kotlin package pages are titled by package name, unlabeled code blocks in
  * Swift pages are labeled `swift`, TypeScript pages' headings inside each member, such as Parameters, parameter
- * names and Example, become labels, TypeScript headings and labels get the ids TypeDoc links to, and Kotlin enum
- * Entries tables get a Name and Summary header and lose the repeated entry name.
+ * names and Example, become labels, TypeScript headings and labels get the ids TypeDoc links to, TypeDoc's document
+ * pages (`documents/`) are left out of search if the library has guides, and Kotlin enum Entries tables get a Name and Summary header and lose
+ * the repeated entry name.
  * Kotlin constructors pages are titled `constructor`, a space follows each line break (`<br>`) in Kotlin table cells,
  * and Kotlin tables of members are left out of search.
  * Kotlin signatures are set as code, without a link to their own page. A Kotlin function named like a type beside it
@@ -166,6 +167,10 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
     if (namesakes.size)
       tidy = tidy.replace(pageLink, (href) => (namesakes.has(join(dirname(page), href)) ? funPage(href) : href));
     if (platform === 'typescript') tidy = typedocLabels(tidy);
+    // TypeDoc's copies of the guides, a class's `@document` ones too, stay, as it links to them, but search would list
+    // each guide twice
+    if (platform === 'typescript' && /(?:^|[\\/])documents[\\/]/.test(page) && existsSync(join(dir, '../guides')))
+      tidy = `---\nsearch:\n  exclude: true\n${tidy.startsWith('---\n') ? tidy.slice(4) : `---\n${tidy}`}`;
     if (platform === 'swift')
       tidy = splitCode(tidy)
         .map((part, i) => (i % 2 ? part.replace(bareFence, '$&swift') : part))
