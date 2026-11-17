@@ -7,8 +7,9 @@ export type NavItem = string | { [title: string]: string | NavItem[] };
 /**
  * Returns the `.nav.yml` contents for the Kotlin or Swift tree at `dir`: an explicit nav that titles each type's
  * section by its page's H1. Swift's `documentation/<module>` level is dropped. Kotlin lists the packages after the root
- * page, or, with one package, shows that package's section in place of the root page, which only lists it. A Kotlin
- * enum lists its entries in declaration order, without Dokka's `entries`, `valueOf` and `values` pages.
+ * page, or, with one package, shows that package's section in place of a root page that only lists it, without module
+ * documentation. A Kotlin enum lists its entries in declaration order, without Dokka's `entries`, `valueOf` and `values`
+ * pages.
  */
 export async function platformNav(dir: string): Promise<{ nav: NavItem[] }> {
   const nav = await sectionNav(dir, '');
@@ -18,7 +19,9 @@ export async function platformNav(dir: string): Promise<{ nav: NavItem[] }> {
   const inner = Object.values(nav[1])[0] as NavItem[];
   const module = (await readdir(dir, { withFileTypes: true })).find((e) => e.isDirectory())!.name;
   const packages = (await readdir(join(dir, module), { withFileTypes: true })).filter((e) => e.isDirectory());
-  return { nav: packages.length === 1 ? inner : ['index.md', ...inner] };
+  // module documentation comes between the root page's H1 and its Packages table
+  const documented = /^# .*\n+(?!## Packages).+/m.test(await readFile(join(dir, 'index.md'), 'utf8'));
+  return { nav: packages.length === 1 && !documented ? inner : ['index.md', ...inner] };
 }
 
 /** An entry of typedoc-plugin-markdown's navigation JSON (its `navigationJson` option). */
