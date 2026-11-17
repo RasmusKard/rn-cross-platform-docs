@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.3.2...v2.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* Swift page file names, and so the pages' site URLs, no longer hold `:` or `*`: `greet(_:).md` is now `greet(_-).md` and `*(_:_:).md` is `@(_-_-).md`.
+
+### Bug Fixes
+
+* Keep a guide the README links in its folder, placing the folder in the nav ([#84](https://github.com/RasmusKard/rn-cross-platform-docs/issues/84)) ([4d3a306](https://github.com/RasmusKard/rn-cross-platform-docs/commit/4d3a306abbac4b171eafe5275677806fa9f4ce85))
+* Keep the Kotlin root page of a one-package library when it has module documentation ([#79](https://github.com/RasmusKard/rn-cross-platform-docs/issues/79)) ([cf53727](https://github.com/RasmusKard/rn-cross-platform-docs/commit/cf537275d920e8105679c11b8e6aa734cb6f349b))
+* Leave TypeDoc's copies of the guides out of search ([#80](https://github.com/RasmusKard/rn-cross-platform-docs/issues/80)) ([3f7c15d](https://github.com/RasmusKard/rn-cross-platform-docs/commit/3f7c15d7953ea82c439460780ab9b429475a7b37))
+* Name Swift pages so that Windows can check out a committed tree ([#81](https://github.com/RasmusKard/rn-cross-platform-docs/issues/81)) ([5f8780a](https://github.com/RasmusKard/rn-cross-platform-docs/commit/5f8780a5124dcb6b1bf5e473eeb2aad1d8c850c5))
+* Show a deprecation note on the page of a deprecated Swift symbol ([#78](https://github.com/RasmusKard/rn-cross-platform-docs/issues/78)) ([eac0929](https://github.com/RasmusKard/rn-cross-platform-docs/commit/eac09297f57c06e66103754c7e5e3845884967e0))
+
 ## [1.3.2](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.3.1...v1.3.2) (2026-11-16)
 
 
