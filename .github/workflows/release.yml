@@ -1,7 +1,7 @@
 name: Release
 
-# Merging release-please's PR creates a draft release with an attested tarball per package; a maintainer publishes them
-# to npm with 2FA by running scripts/publish.sh X.Y.Z locally.
+# Merging release-please's PR creates a draft release, attests a tarball per package, publishes them to npm with trusted
+# publishing, un-drafts the release and moves its major tag.
 on:
   push:
     branches: [main]
@@ -84,6 +84,40 @@ jobs:
         with:
           subject-path: rn-cross-platform-docs-*.tgz
       - run: gh release upload "$TAG" rn-cross-platform-docs-*.tgz -R "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+
+  # Holds the npm OIDC token, so it runs no repository or dependency code.
+  publish:
+    needs: [release-please, attest]
+    runs-on: ubuntu-latest
+    # npm's trusted publisher entries name this environment.
+    environment: release
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: packages
+      # A tarball runs no lifecycle scripts.
+      # shortcut: a re-run fails on a package that is already published, skip those once a release stops halfway
+      - run: |
+          for tarball in rn-cross-platform-docs-*.tgz; do
+            npm publish "$tarball"
+          done
+      # The README's workflow examples pin the major tag (v1, ...).
+      - run: |
+          gh release edit "$TAG" --draft=false -R "$GITHUB_REPOSITORY"
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)
+          major=${TAG%%.*}
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$major" -f sha="$sha" -F force=true >/dev/null 2>&1 ||
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$major" -f sha="$sha" >/dev/null
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release-please.outputs.tag }}
