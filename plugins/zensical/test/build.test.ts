@@ -167,6 +167,11 @@ await test('keeps code in table cells from breaking mid-identifier', async () =>
   );
 });
 
+await test('widens the page, so wide tables and code have room on a wide screen', async () => {
+  const out = await writeProject(library(), { reference: 'docs/reference', out: 'docs-site' });
+  assert.match(readFileSync(join(out, 'docs/extra.css'), 'utf8'), /^\.md-grid \{ max-width: 80rem; \}$/m);
+});
+
 await test('titles Kotlin package pages by package name', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example'), { recursive: true });
