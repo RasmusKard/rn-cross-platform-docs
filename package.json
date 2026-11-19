@@ -1,6 +1,6 @@
 {
   "name": "@rn-cross-platform-docs/cli",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Markdown API reference for React Native native modules, one tree per platform: TypeScript, Kotlin and Swift",
   "keywords": [
     "react-native",
