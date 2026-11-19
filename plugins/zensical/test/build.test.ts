@@ -172,6 +172,11 @@ await test('widens the page, so wide tables and code have room on a wide screen'
   assert.match(readFileSync(join(out, 'docs/extra.css'), 'utf8'), /^\.md-grid \{ max-width: 80rem; \}$/m);
 });
 
+await test("leaves the latest release out of the header, as in a monorepo it can be another package's", async () => {
+  const out = await writeProject(library(), { reference: 'docs/reference', out: 'docs-site' });
+  assert.match(readFileSync(join(out, 'docs/extra.css'), 'utf8'), /^\.md-source__fact--version \{ display: none; \}$/m);
+});
+
 await test('titles Kotlin package pages by package name', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib/com.example'), { recursive: true });

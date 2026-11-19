@@ -99,14 +99,17 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   // the theme's break-word splits identifiers in table cells, where a wide table scrolls instead; Dokka's tables of
   // parameters and exceptions have empty header rows; the sidebar cuts off a label that is one long identifier, where
   // it can wrap instead; Kotlin signatures are paragraphs, to keep their links, set like code blocks; the theme's 61rem
-  // page leaves wide tables and code a column of about 650px, while 80rem still keeps prose lines off a wide monitor
+  // page leaves wide tables and code a column of about 650px, while 80rem still keeps prose lines off a wide monitor;
+  // the header's version is the repo's latest GitHub release, in a monorepo maybe another package's, and the theme has
+  // no setting to leave it out
   await writeFile(
     join(docs, 'extra.css'),
     '.md-grid { max-width: 80rem; }\n' +
       '.md-typeset thead:not(:has(th:not(:empty))) { display: none; }\n' +
       '.md-typeset table code { word-break: normal; }\n.md-nav--primary .md-ellipsis { overflow-wrap: anywhere; }\n' +
       '.md-typeset .kotlin-signature { padding: .8em 1.25em; overflow-x: auto; font-family: var(--md-code-font-family); ' +
-      'font-size: .85em; color: var(--md-code-fg-color); background-color: var(--md-code-bg-color); border-radius: .4rem; }\n',
+      'font-size: .85em; color: var(--md-code-fg-color); background-color: var(--md-code-bg-color); border-radius: .4rem; }\n' +
+      '.md-source__fact--version { display: none; }\n',
   );
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
