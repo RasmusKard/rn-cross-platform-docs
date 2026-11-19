@@ -74,7 +74,7 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   if (!writtenByUs && existsSync(projectDir) && (await readdir(projectDir)).length) {
     throw new Error(`${projectDir} exists and wasn't written by this tool; pick another --out`);
   }
-  if (!relative(projectDir, referenceDir).startsWith('..')) throw new Error(`--reference must be outside --out`);
+  if (within(projectDir, referenceDir)) throw new Error(`--reference must be outside --out`);
 
   const docs = join(projectDir, 'docs');
   await rm(docs, { recursive: true, force: true });
