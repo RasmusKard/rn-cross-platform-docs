@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.2](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v2.0.1...v2.0.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* Keep the sidebar sections a reader opens open on the site's next pages ([#93](https://github.com/RasmusKard/rn-cross-platform-docs/issues/93)) ([b9ea529](https://github.com/RasmusKard/rn-cross-platform-docs/commit/b9ea52958ddcda5e78ade04c65c5b325c42dafbc))
+* Leave the latest GitHub release out of the site's header, which in a monorepo can be another package's ([#92](https://github.com/RasmusKard/rn-cross-platform-docs/issues/92)) ([4a4b390](https://github.com/RasmusKard/rn-cross-platform-docs/commit/4a4b390d4000a30d9f868a8e2efe95c05df72252))
+* Widen the site's pages so wide tables and code fit on a wide screen ([#91](https://github.com/RasmusKard/rn-cross-platform-docs/issues/91)) ([dd4ea34](https://github.com/RasmusKard/rn-cross-platform-docs/commit/dd4ea34ea3b87f09be4f0f34bc2033ef3d24e416))
+
 ## [2.0.1](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v2.0.0...v2.0.1) (2026-11-19)
 
 
