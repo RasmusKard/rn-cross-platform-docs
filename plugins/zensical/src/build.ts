@@ -111,6 +111,7 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
       'font-size: .85em; color: var(--md-code-fg-color); background-color: var(--md-code-bg-color); border-radius: .4rem; }\n' +
       '.md-source__fact--version { display: none; }\n',
   );
+  await writeFile(join(docs, 'extra.js'), keepSectionsOpen);
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
   // last, so the images it copies can't replace anything above
@@ -118,6 +119,33 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   await writeFile(toml, zensicalToml(pkg, siteUrl));
   return projectDir;
 }
+
+// the theme opens only the current page's sidebar sections, and instant loading swaps the sidebar on each page, closing
+// the ones the reader opened; this reopens them while the tab is open. Its names stay in the callback, as the theme's
+// inline scripts declare globals such as `key`
+const keepSectionsOpen = `document$.subscribe(() => {
+  const key = 'rn-cross-platform-docs:open-sections';
+  let open;
+  try {
+    open = new Set(JSON.parse(sessionStorage.getItem(key) ?? '[]'));
+  } catch {
+    open = new Set();
+  }
+  for (const toggle of document.querySelectorAll('.md-nav--primary .md-nav__toggle')) {
+    if (open.has(toggle.id) && !toggle.checked) {
+      toggle.checked = true;
+      document.querySelector('[aria-labelledby="' + toggle.id + '_label"]')?.setAttribute('aria-expanded', 'true');
+    }
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) open.add(toggle.id);
+      else open.delete(toggle.id);
+      try {
+        sessionStorage.setItem(key, JSON.stringify([...open]));
+      } catch {}
+    });
+  }
+});
+`;
 
 /** The `.nav.yml` contents for the platform tree at `dir`. Removes the files in it that the site shouldn't publish. */
 async function treeNav(dir: string, platform: string): Promise<object> {
@@ -704,6 +732,7 @@ function zensicalToml({ name, description, repository }: Package, siteUrl?: stri
     // also sets edit_uri, which stays unused: no content.action.edit, as the pages aren't the repo's files
     repo && `repo_url = ${JSON.stringify(repo)}`,
     'extra_css = ["extra.css"]',
+    'extra_javascript = ["extra.js"]',
     // TypeDoc's copies of files that documents link to, such as the README, whose own links don't resolve there
     'exclude_docs = """\ntypescript/_media/*.md\n"""',
   ].filter(Boolean);

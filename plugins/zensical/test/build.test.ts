@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { afterEach, test } from 'node:test';
 import { repoUrl, writeProject } from '../src/build.ts';
 
@@ -500,6 +501,40 @@ await test('refuses a reference dir inside the output dir', async () => {
   await assert.rejects(
     writeProject(root, { reference: 'docs-site/ref', out: 'docs-site' }),
     /--reference must be outside --out/,
+  );
+});
+
+await test('reopens the sidebar sections the reader opened when instant loading swaps the sidebar', async () => {
+  const out = await writeProject(library(), { reference: 'docs/reference', out: 'docs-site' });
+  assert.match(readFileSync(join(out, 'zensical.toml'), 'utf8'), /^extra_javascript = \["extra\.js"\]$/m);
+  // the theme's document$ emits each page, with its sidebar's section toggles, as it loads
+  const storage = new Map<string, string>();
+  let page: (() => void) | undefined;
+  let toggles: { id: string; checked: boolean; change?: () => void }[] = [];
+  const load = (...checked: boolean[]) => {
+    toggles = checked.map((c, i) => ({ id: `__nav_${i + 1}`, checked: c }));
+    page!();
+    return toggles;
+  };
+  runInNewContext(readFileSync(join(out, 'docs/extra.js'), 'utf8'), {
+    document$: { subscribe: (f: () => void) => (page = f) },
+    document: {
+      querySelectorAll: () =>
+        toggles.map((t) => Object.assign(t, { addEventListener: (_: string, f: () => void) => (t.change = f) })),
+      querySelector: () => null,
+    },
+    sessionStorage: {
+      getItem: (k: string) => storage.get(k) ?? null,
+      setItem: (k: string, v: string) => storage.set(k, v),
+    },
+  });
+  const [, second, third] = load(true, false, false);
+  for (const t of [second, third]) Object.assign(t, { checked: true }).change!();
+  Object.assign(third, { checked: false }).change!();
+  // the current page's section stays as the theme renders it
+  assert.deepEqual(
+    load(false, false, false).map((t) => t.checked),
+    [false, true, false],
   );
 });
 
