@@ -15,7 +15,12 @@ const words = (chars: string[], max: number): string[] => {
 };
 const operators = [...words(opChars, 3), '.', ...words([...opChars, '.'], 2).map((w) => `.${w}`)];
 const names = ['T', 'a', 'a_b', 'a1', 'index', 'init', 'subscript', '_'];
-const signatures = ['', '()', '(_:)', '(a:)', '(_:a:)', '(index:)'];
+// no parentheses (a type's or a property's), or up to two argument labels
+const labels = ['_', 'a', '__', '_a', 'index'];
+const signatures = [
+  '',
+  ...['', ...labels, ...labels.flatMap((l) => labels.map((m) => `${l}:${m}`))].map((ls) => `(${ls && `${ls}:`})`),
+];
 // DocC's suffixes for overloads and for names shared by symbols of different kinds
 const suffixes = ['', '-1abcd', '-swift.struct', '-swift.property'];
 const leaves = [
