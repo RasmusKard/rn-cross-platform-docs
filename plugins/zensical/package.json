@@ -1,6 +1,6 @@
 {
   "name": "@rn-cross-platform-docs/zensical",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Builds a Zensical docs site from the Markdown API reference made by rn-cross-platform-docs",
   "keywords": [
     "react-native",

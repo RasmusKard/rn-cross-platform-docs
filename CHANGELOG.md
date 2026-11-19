@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v2.0.0...v2.0.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* Accept a --reference on another drive than --out ([#89](https://github.com/RasmusKard/rn-cross-platform-docs/issues/89)) ([7db8d44](https://github.com/RasmusKard/rn-cross-platform-docs/commit/7db8d4489354c67d4325a4eb6a0d48e1231d033c))
+
 ## [2.0.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v1.3.2...v2.0.0) (2026-11-17)
 
 
