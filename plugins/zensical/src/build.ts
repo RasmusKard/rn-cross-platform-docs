@@ -151,7 +151,10 @@ const keepSectionsOpen = `document$.subscribe(() => {
 const typedocMedia = 'typescript/_media/';
 const searchExcluded = '---\nsearch:\n  exclude: true\n';
 
-/** The llms.txt sections: one per nav entry, listing the pages search lists, each folder's page before the pages in it. */
+/**
+ * The llms.txt sections: one per nav entry that has pages, listing them all but TypeDoc's copies of the guides, each
+ * folder's page before the pages in it.
+ */
 async function llmsSections(docs: string, nav: { [title: string]: string }[]): Promise<Record<string, string[]>> {
   const sections: Record<string, string[]> = {};
   for (const [title, path] of nav.flatMap((item) => Object.entries(item))) {
@@ -166,7 +169,7 @@ async function llmsSections(docs: string, nav: { [title: string]: string }[]): P
       if (!(await readFile(join(docs, page), 'utf8')).startsWith(searchExcluded)) pages.push(file);
     }
     const url = (page: string) => page.replace(/(^|\/)(?:README|index)\.md$/, '$1');
-    sections[title] = pages.sort((a, b) => url(a).localeCompare(url(b), 'en'));
+    if (pages.length) sections[title] = pages.sort((a, b) => url(a).localeCompare(url(b), 'en'));
   }
   return sections;
 }

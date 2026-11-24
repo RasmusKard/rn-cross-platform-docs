@@ -444,8 +444,9 @@ await test("leaves TypeDoc's document pages out of search if there are guides, k
   assert.equal(page('documents/a.md'), '# A\n', 'documents that are no copies of guides stay in search');
 });
 
-await test('with --site-url, llms.txt has a section per nav entry, listing the pages search lists', async () => {
+await test("with --site-url, llms.txt has a section per nav entry with pages, listing them but TypeDoc's guide copies", async () => {
   const root = library();
+  mkdirSync(join(root, 'docs/reference/swift'));
   mkdirSync(join(root, 'docs/reference/kotlin/lib'));
   writeFileSync(join(root, 'docs/reference/kotlin/lib/index.md'), '# lib');
   writeFileSync(join(root, 'docs/reference/kotlin/lib/f.md'), '# f');
