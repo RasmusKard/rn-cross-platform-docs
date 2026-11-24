@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v2.0.3...v2.1.0) (2026-11-24)
+
+
+### Features
+
+* Publish an llms.txt and a Markdown copy of each page on the site ([#102](https://github.com/RasmusKard/rn-cross-platform-docs/issues/102)) ([28d843e](https://github.com/RasmusKard/rn-cross-platform-docs/commit/28d843e34bebe2cf046024114ec28861d0953b53))
+
 ## [2.0.3](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v2.0.2...v2.0.3) (2026-11-24)
 
 
