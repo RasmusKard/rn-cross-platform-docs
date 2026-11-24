@@ -36,6 +36,10 @@ The site's home page is the library's `README.md`. The pages in `guides/`, if th
 README links them, a folder of guides where its first linked guide is; `guides/.nav.yml` overrides that. Site name,
 description and repo link come from `package.json`.
 
+With `--site-url`, which the GitHub Actions workflow passes, the site also serves `llms.txt` at its root for coding
+agents. It links a Markdown copy of each page but TypeDoc's copies of the guides, `<page>/index.md`, and each of those
+pages gets a Copy as Markdown button.
+
 Both commands take `--help` for their options.
 
 ### GitHub Actions

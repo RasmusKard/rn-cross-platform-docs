@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { afterEach, test } from 'node:test';
 import { repoUrl, writeProject } from '../src/build.ts';
@@ -442,6 +442,42 @@ await test("leaves TypeDoc's document pages out of search if there are guides, k
   rmSync(join(root, 'guides'), { recursive: true });
   await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.equal(page('documents/a.md'), '# A\n', 'documents that are no copies of guides stay in search');
+});
+
+await test("with --site-url, llms.txt has a section per nav entry with pages, listing them but TypeDoc's guide copies", async () => {
+  const root = library();
+  mkdirSync(join(root, 'docs/reference/swift'));
+  mkdirSync(join(root, 'docs/reference/kotlin/lib'));
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/index.md'), '# lib');
+  writeFileSync(join(root, 'docs/reference/kotlin/lib/f.md'), '# f');
+  for (const page of ['README.md', 'functions/g.md', 'documents/a.md', 'classes/documents/c.md', '_media/x.md']) {
+    mkdirSync(dirname(join(root, 'docs/reference/typescript', page)), { recursive: true });
+    writeFileSync(join(root, 'docs/reference/typescript', page), '# page');
+  }
+  const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site', siteUrl: 'https://x.dev/' });
+  const toml = () => readFileSync(join(out, 'zensical.toml'), 'utf8');
+  const sections = () => /^\[project\.plugins\.llmstxt\.sections\]\n(.*?)\n\n/ms.exec(toml())?.[1].split('\n');
+  assert.deepEqual(sections(), [
+    '"Home" = ["README.md"]',
+    '"Guides" = ["guides/a.md"]',
+    '"TypeScript" = ["typescript/README.md","typescript/functions/g.md"]',
+    '"Kotlin" = ["kotlin/index.md","kotlin/lib/index.md","kotlin/lib/f.md"]',
+  ]);
+
+  rmSync(join(root, 'guides'), { recursive: true });
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site', siteUrl: 'https://x.dev/' });
+  assert.deepEqual(
+    sections(),
+    [
+      '"Home" = ["README.md"]',
+      '"TypeScript" = ["typescript/README.md","typescript/classes/documents/c.md","typescript/documents/a.md","typescript/functions/g.md"]',
+      '"Kotlin" = ["kotlin/index.md","kotlin/lib/index.md","kotlin/lib/f.md"]',
+    ],
+    'documents that are no copies of guides stay in search, so in llms.txt',
+  );
+
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
+  assert.doesNotMatch(toml(), /llmstxt/, 'Zensical refuses llmstxt without site_url');
 });
 
 await test('replaces its own project on a rebuild, and drops removed pages', async () => {
