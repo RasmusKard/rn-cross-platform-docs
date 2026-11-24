@@ -444,7 +444,7 @@ await test("leaves TypeDoc's document pages out of search if there are guides, k
   assert.equal(page('documents/a.md'), '# A\n', 'documents that are no copies of guides stay in search');
 });
 
-await test('with --site-url, llms.txt has a section per nav entry, listing its pages but no TypeDoc media or documents', async () => {
+await test('with --site-url, llms.txt has a section per nav entry, listing the pages search lists', async () => {
   const root = library();
   mkdirSync(join(root, 'docs/reference/kotlin/lib'));
   writeFileSync(join(root, 'docs/reference/kotlin/lib/index.md'), '# lib');
@@ -455,12 +455,25 @@ await test('with --site-url, llms.txt has a section per nav entry, listing its p
   }
   const out = await writeProject(root, { reference: 'docs/reference', out: 'docs-site', siteUrl: 'https://x.dev/' });
   const toml = () => readFileSync(join(out, 'zensical.toml'), 'utf8');
-  assert.deepEqual(/^\[project\.plugins\.llmstxt\.sections\]\n(.*?)\n\n/ms.exec(toml())?.[1].split('\n'), [
+  const sections = () => /^\[project\.plugins\.llmstxt\.sections\]\n(.*?)\n\n/ms.exec(toml())?.[1].split('\n');
+  assert.deepEqual(sections(), [
     '"Home" = ["README.md"]',
     '"Guides" = ["guides/a.md"]',
     '"TypeScript" = ["typescript/README.md","typescript/functions/g.md"]',
     '"Kotlin" = ["kotlin/index.md","kotlin/lib/index.md","kotlin/lib/f.md"]',
   ]);
+
+  rmSync(join(root, 'guides'), { recursive: true });
+  await writeProject(root, { reference: 'docs/reference', out: 'docs-site', siteUrl: 'https://x.dev/' });
+  assert.deepEqual(
+    sections(),
+    [
+      '"Home" = ["README.md"]',
+      '"TypeScript" = ["typescript/README.md","typescript/classes/documents/c.md","typescript/documents/a.md","typescript/functions/g.md"]',
+      '"Kotlin" = ["kotlin/index.md","kotlin/lib/index.md","kotlin/lib/f.md"]',
+    ],
+    'documents that are no copies of guides stay in search, so in llms.txt',
+  );
 
   await writeProject(root, { reference: 'docs/reference', out: 'docs-site' });
   assert.doesNotMatch(toml(), /llmstxt/, 'Zensical refuses llmstxt without site_url');

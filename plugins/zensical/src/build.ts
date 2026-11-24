@@ -147,13 +147,14 @@ const keepSectionsOpen = `document$.subscribe(() => {
 });
 `;
 
-/**
- * The llms.txt sections: one per nav entry, listing its pages, each folder's page before the pages in it. TypeDoc's
- * `_media/` and `documents/` pages are left out, as the nav leaves them out.
- */
+// TypeDoc's copies of files that documents link to, such as the README, whose own links don't resolve there
+const typedocMedia = 'typescript/_media/';
+const searchExcluded = '---\nsearch:\n  exclude: true\n';
+
+/** The llms.txt sections: one per nav entry, listing the pages search lists, each folder's page before the pages in it. */
 async function llmsSections(docs: string, nav: { [title: string]: string }[]): Promise<Record<string, string[]>> {
   const sections: Record<string, string[]> = {};
-  for (const [title, path] of nav.flatMap(Object.entries)) {
+  for (const [title, path] of nav.flatMap((item) => Object.entries(item))) {
     if (path.endsWith('.md')) {
       sections[title] = [path];
       continue;
@@ -161,7 +162,8 @@ async function llmsSections(docs: string, nav: { [title: string]: string }[]): P
     const pages: string[] = [];
     for await (const page of glob(`${path}/**/*.md`, { cwd: docs })) {
       const file = page.split(sep).join('/');
-      if (!/^typescript\/(?:.*\/)?(?:_media|documents)\//.test(file)) pages.push(file);
+      if (file.startsWith(typedocMedia)) continue;
+      if (!(await readFile(join(docs, page), 'utf8')).startsWith(searchExcluded)) pages.push(file);
     }
     const url = (page: string) => page.replace(/(^|\/)(?:README|index)\.md$/, '$1');
     sections[title] = pages.sort((a, b) => url(a).localeCompare(url(b), 'en'));
@@ -225,7 +227,7 @@ async function tidyPages(dir: string, platform: string): Promise<void> {
     // TypeDoc's copies of the guides, a class's `@document` ones too, stay, as it links to them, but search would list
     // each guide twice
     if (platform === 'typescript' && /(?:^|[\\/])documents[\\/]/.test(page) && existsSync(join(dir, '../guides')))
-      tidy = `---\nsearch:\n  exclude: true\n${tidy.startsWith('---\n') ? tidy.slice(4) : `---\n${tidy}`}`;
+      tidy = `${searchExcluded}${tidy.startsWith('---\n') ? tidy.slice(4) : `---\n${tidy}`}`;
     if (platform === 'swift')
       tidy = splitCode(tidy)
         .map((part, i) => (i % 2 ? part.replace(bareFence, '$&swift') : part))
@@ -758,8 +760,7 @@ function zensicalToml(
     repo && `repo_url = ${JSON.stringify(repo)}`,
     'extra_css = ["extra.css"]',
     'extra_javascript = ["extra.js"]',
-    // TypeDoc's copies of files that documents link to, such as the README, whose own links don't resolve there
-    'exclude_docs = """\ntypescript/_media/*.md\n"""',
+    `exclude_docs = """\n${typedocMedia}*.md\n"""`,
   ].filter(Boolean);
   const features = [
     'content.action.copy',
