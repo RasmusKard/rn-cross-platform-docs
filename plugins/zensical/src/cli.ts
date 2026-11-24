@@ -11,7 +11,7 @@ Needs uv (https://docs.astral.sh/uv/) on PATH; it runs Zensical as this package'
 Options:
   --reference <dir>   reference root holding typescript/, kotlin/, swift/ (default: docs/reference)
   --out <dir>         site project, replaced on each run; the built site is <out>/site (default: docs-site)
-  --site-url <url>    URL the site is served from (default: none)
+  --site-url <url>    URL the site is served from; llms.txt needs it (default: none)
   -h, --help          show this help
 `;
 

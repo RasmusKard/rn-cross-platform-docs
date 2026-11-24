@@ -3,7 +3,7 @@ import { existsSync, statSync, type Stats } from 'node:fs';
 import { cp, glob, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { platformNav, typescriptNav, type NavItem, type TypeDocNavItem } from './nav.ts';
+import { platformNav, typescriptNav, type TypeDocNavItem } from './nav.ts';
 
 /** The package root, whose pyproject.toml and uv.lock pin Zensical and its dependencies by version and hash. */
 const zensicalProject = fileURLToPath(new URL('..', import.meta.url));
@@ -79,7 +79,7 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   const docs = join(projectDir, 'docs');
   await rm(docs, { recursive: true, force: true });
   await mkdir(docs, { recursive: true });
-  const nav: NavItem[] = [];
+  const nav: { [title: string]: string }[] = [];
   // README.md keeps its name, so links to it from guides (../README.md) still resolve; Zensical serves it as the index
   await cp(join(root, 'README.md'), join(docs, 'README.md'));
   nav.push({ Home: 'README.md' });
@@ -116,7 +116,7 @@ export async function writeProject(root: string, { reference, out, siteUrl }: Bu
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Package;
   // last, so the images it copies can't replace anything above
   await linkRepoFiles(resolve(root), docs, referenceDir, pkg.repository);
-  await writeFile(toml, zensicalToml(pkg, siteUrl));
+  await writeFile(toml, zensicalToml(pkg, siteUrl ? { url: siteUrl, llms: await llmsSections(docs, nav) } : undefined));
   return projectDir;
 }
 
@@ -146,6 +146,28 @@ const keepSectionsOpen = `document$.subscribe(() => {
   }
 });
 `;
+
+/**
+ * The llms.txt sections: one per nav entry, listing its pages, each folder's page before the pages in it. TypeDoc's
+ * `_media/` and `documents/` pages are left out, as the nav leaves them out.
+ */
+async function llmsSections(docs: string, nav: { [title: string]: string }[]): Promise<Record<string, string[]>> {
+  const sections: Record<string, string[]> = {};
+  for (const [title, path] of nav.flatMap(Object.entries)) {
+    if (path.endsWith('.md')) {
+      sections[title] = [path];
+      continue;
+    }
+    const pages: string[] = [];
+    for await (const page of glob(`${path}/**/*.md`, { cwd: docs })) {
+      const file = page.split(sep).join('/');
+      if (!/^typescript\/(?:.*\/)?(?:_media|documents)\//.test(file)) pages.push(file);
+    }
+    const url = (page: string) => page.replace(/(^|\/)(?:README|index)\.md$/, '$1');
+    sections[title] = pages.sort((a, b) => url(a).localeCompare(url(b), 'en'));
+  }
+  return sections;
+}
 
 /** The `.nav.yml` contents for the platform tree at `dir`. Removes the files in it that the site shouldn't publish. */
 async function treeNav(dir: string, platform: string): Promise<object> {
@@ -723,12 +745,15 @@ export function repoUrl(repository: Package['repository']): string | undefined {
 // a TOML literal string holds it as written, so it has no single quote
 const searchSeparator = '[\\s\\-_,:!=\\[\\]()\\\\"`/]+|\\.(?!\\d)|(?!\\b)(?=[A-Z][a-z])';
 
-function zensicalToml({ name, description, repository }: Package, siteUrl?: string): string {
+function zensicalToml(
+  { name, description, repository }: Package,
+  site?: { url: string; llms: Record<string, string[]> },
+): string {
   const repo = repoUrl(repository);
   const project = [
     `site_name = ${JSON.stringify(name)}`,
     description && `site_description = ${JSON.stringify(description)}`,
-    siteUrl && `site_url = ${JSON.stringify(siteUrl)}`,
+    site && `site_url = ${JSON.stringify(site.url)}`,
     // also sets edit_uri, which stays unused: no content.action.edit, as the pages aren't the repo's files
     repo && `repo_url = ${JSON.stringify(repo)}`,
     'extra_css = ["extra.css"]',
@@ -737,6 +762,7 @@ function zensicalToml({ name, description, repository }: Package, siteUrl?: stri
     'exclude_docs = """\ntypescript/_media/*.md\n"""',
   ].filter(Boolean);
   const features = [
+    'content.action.copy',
     'content.code.copy',
     'content.tabs.link',
     'navigation.indexes',
@@ -750,6 +776,12 @@ function zensicalToml({ name, description, repository }: Package, siteUrl?: stri
     'search.highlight',
     'toc.follow',
   ];
+  // Zensical refuses llmstxt without site_url
+  const llmstxt = site
+    ? `\n[project.plugins.llmstxt.sections]\n${Object.entries(site.llms)
+        .map(([title, pages]) => `${JSON.stringify(title)} = ${JSON.stringify(pages)}\n`)
+        .join('')}`
+    : '';
   return `${marker}
 [project]
 ${project.join('\n')}
@@ -781,7 +813,7 @@ toggle.name = "Switch to system preference"
 # Zensical's default separator, plus a split before each capitalized word inside a name: zoom finds textZoom
 [project.plugins.search]
 separator = '${searchSeparator}'
-
+${llmstxt}
 # Zensical's default extension set (setting this table replaces it), minus emoji, plus escapeall
 [project.markdown_extensions]
 abbr = {}
