@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.3](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v2.0.2...v2.0.3) (2026-11-24)
+
+
+### Bug Fixes
+
+* **deps:** Bump pyyaml ([#99](https://github.com/RasmusKard/rn-cross-platform-docs/issues/99)) ([bd14136](https://github.com/RasmusKard/rn-cross-platform-docs/commit/bd1413654a3532a97bc75be16c8662a84fedd23c))
+* **deps:** Bump zensical from 0.1.1 to 0.1.3 in /plugins/zensical ([#100](https://github.com/RasmusKard/rn-cross-platform-docs/issues/100)) ([888fefa](https://github.com/RasmusKard/rn-cross-platform-docs/commit/888fefa4752530e7112a1943eec3baa18423607a))
+
 ## [2.0.2](https://github.com/RasmusKard/rn-cross-platform-docs/compare/v2.0.1...v2.0.2) (2026-11-19)
 
 
