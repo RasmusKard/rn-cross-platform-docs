@@ -49,12 +49,10 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.1.1
-      - uses: actions/setup-node@v7.1.0
+      - uses: pnpm/setup@v3.2.0
         with:
-          node-version: 24
-          # A cache written by other workflows could poison the release.
-          package-manager-cache: false
+          runtime: node@24
+          install: false
       - run: |
           for p in . plugins/zensical; do
             test "v$(node -p "require('./$p/package.json').version")" = "$TAG"
