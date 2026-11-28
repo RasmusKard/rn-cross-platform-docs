@@ -36,7 +36,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepare": "npm run build",
+    "prepare": "pnpm run build",
     "test": "node --test 'test/**/*.test.ts'",
     "lint": "oxlint && tsc --noEmit && oxfmt --check",
     "format": "oxfmt"

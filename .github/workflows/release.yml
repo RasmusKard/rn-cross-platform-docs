@@ -49,6 +49,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag }}
           persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.1
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
@@ -61,8 +62,9 @@ jobs:
         env:
           TAG: ${{ needs.release-please.outputs.tag }}
       - run: |
+          pnpm install --frozen-lockfile --ignore-scripts
           for p in . plugins/zensical; do
-            (cd "$p" && npm ci --ignore-scripts && npm run lint && npm test && npm run build)
+            (cd "$p" && pnpm run lint && pnpm test && pnpm run build)
           done
       - run: npm pack --ignore-scripts . ./plugins/zensical
       - uses: actions/upload-artifact@v7.0.2

@@ -1,0 +1,8 @@
+packages:
+  - plugins/zensical
+  - examples/expo-greeter
+  - examples/expo-greeter/example
+# Keeps pnpm-lock.yaml one YAML document while `packageManager` is set; GitHub's dependency graph, which Dependabot
+# security alerts read, can't parse a second one. https://pnpm.io/lockfile
+pmOnFail: ignore
+minimumReleaseAge: 4320

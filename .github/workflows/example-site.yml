@@ -23,6 +23,6 @@ jobs:
     uses: ./.github/workflows/deploy-zensical.yml
     with:
       working-directory: examples/expo-greeter
-      # the example links the CLI and plugin from this checkout, so build those first
-      install: (cd ../.. && npm ci) && (cd ../../plugins/zensical && npm ci) && npm ci && (cd example && npm ci)
-      prepare: cd example && npx expo prebuild
+      # the default install looks for a lockfile in working-directory, and the workspace keeps it at the repo root
+      install: corepack enable && pnpm install --frozen-lockfile
+      prepare: cd example && pnpm exec expo prebuild
