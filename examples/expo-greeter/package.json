@@ -24,8 +24,8 @@
   "homepage": "https://github.com/RasmusKard/rn-cross-platform-docs#readme",
   "dependencies": {},
   "devDependencies": {
-    "@rn-cross-platform-docs/cli": "file:../..",
-    "@rn-cross-platform-docs/zensical": "file:../../plugins/zensical",
+    "@rn-cross-platform-docs/cli": "workspace:*",
+    "@rn-cross-platform-docs/zensical": "workspace:*",
     "@types/react": "~19.3.0",
     "expo": "^58.0.21",
     "react": "19.3.0",

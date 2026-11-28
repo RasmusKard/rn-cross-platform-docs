@@ -1,9 +1,7 @@
 /.github/ @RasmusKard
 /package.json @RasmusKard
-/package-lock.json @RasmusKard
-/.npmrc @RasmusKard
+/pnpm-lock.yaml @RasmusKard
+/pnpm-workspace.yaml @RasmusKard
 /plugins/zensical/package.json @RasmusKard
-/plugins/zensical/package-lock.json @RasmusKard
-/plugins/zensical/.npmrc @RasmusKard
 /plugins/zensical/pyproject.toml @RasmusKard
 /plugins/zensical/uv.lock @RasmusKard

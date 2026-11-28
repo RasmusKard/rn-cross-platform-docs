@@ -32,13 +32,10 @@ Needs JDK 17 for Kotlin, Xcode and CocoaPods for Swift, and [uv](https://docs.as
 for the site. From the repo root:
 
 ```sh
-npm ci
-(cd plugins/zensical && npm ci)
+pnpm install --frozen-lockfile
 cd examples/expo-greeter
-npm ci
-(cd example && npm ci)
-npm run docs
+pnpm run docs
 ```
 
-`npm run docs` writes the reference to `docs/reference/` and the site to `docs-site/site/`; serve the latter over
+`pnpm run docs` writes the reference to `docs/reference/` and the site to `docs-site/site/`; serve the latter over
 HTTP, e.g. `uv run --no-project python -m http.server -d docs-site/site`.
